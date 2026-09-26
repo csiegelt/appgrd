@@ -7,6 +7,7 @@ const Alumno = (() => {
   const fmtN = v => new Intl.NumberFormat('es-CL', { maximumFractionDigits: 4 }).format(v);
   const fmtPeso = v => new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(v);
   const clpDec = v => '$' + num(v, 2);
+  const nd = n => num(n, 0) + (n === 1 ? ' día' : ' días');
 
   const NIVELES = {
     1: { nombre: 'Pago y resultado', desc: 'Calcule el pago GRD (precio base × peso) y el resultado del episodio (pago − costo), como en el ejercicio de clase.' },
@@ -168,7 +169,8 @@ const Alumno = (() => {
       paso('Tipo de estancia', 'PCI ≤ días ≤ PCS → inlier', `PCI ${c.pci} · días ${c.dias} · PCS ${c.pcs}`, tipo);
 
       q({ id: 'diasad', texto: 'Días adicionales a pagar', tipo: 'int', resp: diasAd,
-        pista: 'Sólo un outlier superior tiene días adicionales: días − PCS − P50 (período de carencia). Si da negativo, o no es outlier superior, es 0.',
+        pista: c.sinOutlier ? 'En este caso el convenio no paga outlier: los días adicionales son 0 aunque el paciente supere el PCS.'
+                            : 'Sólo un outlier superior tiene días adicionales: días − PCS − P50 (período de carencia). Si da negativo, o no es outlier superior, es 0.',
         errores: [
           ...(pagaOut && c.dias - c.pcs !== diasAd ? [{ v: c.dias - c.pcs, msg: 'Le faltó descontar el período de carencia (P50 del GRD).' }] : []),
           ...(pagaOut && c.dias - c.pcs - c.p50 < 0 ? [{ v: c.dias - c.pcs - c.p50, msg: 'Si el cálculo da negativo, los días adicionales son 0.' }] : []),
@@ -235,7 +237,8 @@ const Alumno = (() => {
 
       const cup = c.costo / c.peso;
       q({ id: 'cup', texto: 'Costo por unidad de peso (costo ÷ peso)', tipo: 'money', rel: 0.005, resp: cup,
-        pista: 'Divida el costo por el peso. Si el resultado es mayor que el precio base, el episodio pierde.',
+        pista: aj ? 'Divida el costo por el peso. Con ajuste por tecnología no basta compararlo con el precio base: el ajuste paga aparte parte del costo.'
+                  : 'Divida el costo por el peso. Si el resultado es mayor que el precio base, el episodio pierde.',
         errores: [{ v: c.peso / c.costo, tol: c.peso / c.costo / 2, msg: 'Invirtió la división: es costo ÷ peso.' }] });
       paso('Costo por unidad de peso', 'Costo ÷ peso', `${clp(c.costo)} ÷ ${fmtPeso(c.peso)}`,
         clp(cup) + (aj ? ' — con ajuste por tecnología, compare el resultado total' : cup > c.pb ? ' — mayor que el precio base → pérdida' : ' — no supera el precio base → sin pérdida'));
@@ -251,7 +254,8 @@ const Alumno = (() => {
 
       const gp = resultado > 0 ? 'Ganancia' : resultado < 0 ? 'Pérdida' : 'Equilibrio';
       q({ id: 'gp', texto: '¿El episodio genera ganancia o pérdida?', tipo: 'choice', opciones: ['Ganancia', 'Pérdida', 'Equilibrio'], resp: gp,
-        pista: 'Mire el signo del resultado, o compare el costo por unidad de peso con el precio base.' });
+        pista: aj ? 'Mire el signo del resultado (pago total − costo). Con ajuste por tecnología no compare sólo el costo por unidad de peso con el precio base.'
+                  : 'Mire el signo del resultado, o compare el costo por unidad de peso con el precio base.' });
       paso('Conclusión', 'Signo del resultado', clp(resultado), gp);
     }
     return { preguntas: Q, pasos: S };
@@ -374,8 +378,8 @@ const Alumno = (() => {
         ${c.grd ? fila('Código IR-GRD', esc(c.grd) + (c.desc ? `<br><small>${esc(c.desc)}</small>` : '')) : ''}
         ${fila('Precio base pactado', clp(c.pb))}${fila('Peso del GRD', fmtPeso(c.peso))}
         ${fila('Días de estada', num(c.dias, 0))}${fila('EM norma del GRD', fmtN(c.em) + ' días')}
-        ${fila('Punto de corte inferior (PCI)', num(c.pci, 0) + ' días')}${fila('Punto de corte superior (PCS)', num(c.pcs, 0) + ' días')}
-        ${fila('P50 del GRD (carencia)', num(c.p50, 0) + ' días')}${filaTec}${fila('Costo total asignado', clp(c.costo))}</tbody></table>`;
+        ${fila('Punto de corte inferior (PCI)', nd(c.pci))}${fila('Punto de corte superior (PCS)', nd(c.pcs))}
+        ${fila('P50 del GRD (carencia)', nd(c.p50))}${filaTec}${fila('Costo total asignado', clp(c.costo))}</tbody></table>`;
       reglas = `<div class="reglas"><b>Reglas de este ejercicio</b><ul>
         <li><b>Inlier</b> (PCI ≤ días ≤ PCS): pago = precio base × peso.</li>
         <li><b>Outlier superior</b> (días &gt; PCS): ${c.sinOutlier ? 'en este caso el convenio <b>no paga adicional por outlier</b>: días adicionales = 0 y pago = precio base × peso.' : `pago base + días adicionales × valor día.<br>

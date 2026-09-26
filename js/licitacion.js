@@ -119,12 +119,12 @@ const Licitacion = (() => {
       const eq = c.sumPeso > 0 ? c.costo / c.sumPeso : null;               // precio base de equilibrio
       const tieneRango = tr.max > 0;
       const admisible = tr.oferta == null ? null : tieneRango ? tr.oferta >= (tr.min || 0) && tr.oferta <= tr.max : true;
-      let sugerido = eq != null ? eq * (1 + margen) : null;
+      let sugerido = eq != null ? Math.ceil(eq * (1 + margen) / 1000) * 1000 : null;   // se redondea antes de acotar al rango
       if (sugerido != null && tieneRango) sugerido = Math.min(tr.max, Math.max(tr.min || 0, sugerido));
       const ingreso = tr.oferta != null ? tr.oferta * c.sumPeso : null;
       const resultado = ingreso != null ? ingreso - c.costo : null;
       return {
-        i, ...tr, ...c, eq, tieneRango, admisible, sugerido: sugerido != null ? Math.ceil(sugerido / 1000) * 1000 : null,
+        i, ...tr, ...c, eq, tieneRango, admisible, sugerido,
         ingreso, resultado, margenReal: ingreso ? resultado / ingreso : null,
         pierdeEnTope: eq != null && tieneRango && eq > tr.max
       };
@@ -142,7 +142,7 @@ const Licitacion = (() => {
     tot.resultado = tot.ingreso != null ? tot.ingreso - tot.costo : null;
     tot.eq = tot.sumPeso ? tot.costo / tot.sumPeso : null;
     const pbProm = completa ? ofertas.reduce((a, v) => a + v, 0) / 3 : null;
-    const puntaje = pbProm && st.comp > 0 ? Math.min(1, st.comp / pbProm) * 100 : null;
+    const puntaje = pbProm && st.comp > 0 && inadmisibles.length === 0 ? Math.min(1, st.comp / pbProm) * 100 : null;
     const pbUnico = state.params.precioBase;
     return { tramos, tot, completa, inadmisibles, pbProm, puntaje, pbUnico, ingresoUnico: pbUnico * tot.sumPeso };
   }
@@ -151,8 +151,9 @@ const Licitacion = (() => {
   function pbParaPeso(peso) {
     if (!st) load();
     const i = tramoDe(peso), t = st.tramos[i];
-    const pb = t.oferta > 0 ? t.oferta : t.max > 0 ? t.max : 0;
-    return { i, nombre: `tramo ${i + 1}`, rango: rangoPeso(i), pb, fuente: t.oferta > 0 ? 'su oferta en la licitación' : 'tope de las bases' };
+    const ofertaOk = t.oferta > 0 && (!(t.max > 0) || (t.oferta >= (t.min || 0) && t.oferta <= t.max));
+    const pb = ofertaOk ? t.oferta : t.max > 0 ? t.max : 0;
+    return { i, nombre: `tramo ${i + 1}`, rango: rangoPeso(i), pb, fuente: ofertaOk ? 'su oferta en la licitación' : t.oferta > 0 ? 'tope de las bases; su oferta es inadmisible' : 'tope de las bases' };
   }
 
   function cargarPreset(preset, conservar = true) {
@@ -172,6 +173,7 @@ const Licitacion = (() => {
     $('l-s-peso').value = fmtN(ej.simular.peso);
     $('l-s-costo').value = fmtInt(ej.simular.costo);
     $('l-s-tec').value = ej.simular.tec;
+    st.sim = { peso: $('l-s-peso').value, costo: $('l-s-costo').value, tec: $('l-s-tec').value };
     ['l-tbl-bases', 'l-tbl-casu'].forEach(id => $(id).innerHTML = '');
     save(); render();
   }
@@ -263,14 +265,14 @@ const Licitacion = (() => {
     const manual = st.fuente === 'manual';
     $('l-fuente-hint').innerHTML = manual
       ? 'Ingrese por tramo el número de egresos esperados, su peso medio y su costo medio por egreso.'
-      : `Se usan los ${computeAll().length} egresos de la pestaña <b>Egresos</b>, clasificados por tramo según su peso. Cambie a ingreso manual si no tiene datos propios.`;
+      : `Se usan los ${computeAll().filter(r => r.peso > 0 && r.costo != null).length} egresos de la pestaña <b>Egresos</b>${computeAll().some(r => !(r.peso > 0 && r.costo != null)) ? ' (se excluyen los que no tienen peso o costo)' : ''}, clasificados por tramo según su peso. Cambie a ingreso manual si no tiene datos propios.`;
     const tb = $('l-tbl-casu');
     if (tb.contains(document.activeElement)) { actualizarCasu(a); return; }
     const cel = (t, k, v, ph) => manual ? `<input class="num-in" data-t="${t.i}" data-k="${k}" inputmode="decimal" value="${v}" placeholder="${ph}">` : '';
     tb.innerHTML = `<thead><tr><th>Tramo</th><th class="num">N° egresos</th><th class="num">Peso medio</th><th class="num">Costo medio por egreso</th><th class="num">Suma de pesos</th><th class="num">Costo total</th><th class="num">PB de equilibrio</th><th class="num">PB sugerido (+${fmtN(st.margen)} %)</th></tr></thead>
       <tbody>${a.tramos.map(t => `<tr>
         <td><b>${nombreTramo(t.i)}</b><br><small>${rangoPeso(t.i)}</small></td>
-        <td class="num">${manual ? cel(t, 'n', fmtInt(t.n ?? null), 'n') : num(t.n, 0)}</td>
+        <td class="num">${manual ? cel(t, 'n', fmtInt(st.tramos[t.i].n), 'n') : num(t.n, 0)}</td>
         <td class="num">${manual ? cel(t, 'pesoMedio', t.pesoMedio != null ? fmtN(t.pesoMedio) : '', 'ej. 1,2') : (t.n ? num(t.sumPeso / t.n, 3) : '—')}</td>
         <td class="num">${manual ? cel(t, 'costoMedio', fmtInt(t.costoMedio), '$') : (t.n ? clp(t.costo / t.n) : '—')}</td>
         <td class="num" data-c="sp${t.i}">${t.n ? num(t.sumPeso, 2) : '—'}</td>
@@ -313,15 +315,15 @@ const Licitacion = (() => {
         ${kpi('Egresos esperados', num(a.tot.n, 0), `Suma de pesos ${num(a.tot.sumPeso, 2)} · IC ${num(a.tot.sumPeso / a.tot.n, 3)}`)}
         ${kpi('Costo total esperado', clp(a.tot.costo), `PB de equilibrio global ${clp(a.tot.eq)}`)}
         ${kpi('Ingresos con su oferta', a.completa ? clp(a.tot.ingreso) : '—', a.pbProm ? `PB promedio ofertado ${clp(a.pbProm)}` : '')}
-        ${kpi('Resultado esperado', a.completa ? clp(a.tot.resultado) : '—', '', a.tot.resultado == null ? '' : a.tot.resultado < 0 ? 'neg' : 'pos')}
+        ${kpi('Resultado esperado', a.completa ? clp(a.tot.resultado) : '—', ad ? '' : 'Sólo referencial: la oferta es inadmisible', a.tot.resultado == null || !ad ? '' : a.tot.resultado < 0 ? 'neg' : 'pos')}
         ${kpi('Puntaje económico estimado', a.puntaje != null ? num(a.puntaje, 1) + ' / 100' : '—',
-          a.puntaje != null ? `Aporta ${num(a.puntaje * st.pond / 100, 1)} puntos (ponderación ${fmtN(st.pond)} %) · supuesto: menor PB ÷ su PB` : 'Ingrese el PB de la competencia')}
+          a.puntaje != null ? `Aporta ${num(a.puntaje * st.pond / 100, 1)} puntos (ponderación ${fmtN(st.pond)} %) · supuesto: menor PB ÷ su PB` : a.completa && !ad ? 'Oferta inadmisible: no recibe puntaje' : 'Ingrese el PB de la competencia')}
         ${kpi('Con un precio base único', clp(a.ingresoUnico - a.tot.costo), `Resultado si se pagara todo a ${clp(a.pbUnico)} (Parámetros)`, a.ingresoUnico - a.tot.costo < 0 ? 'neg' : 'pos')}
       </div>
       <div class="card">
         <h3>Curva de pago según el peso relativo</h3>
         <div id="l-ch-pago" class="chart"></div>
-        <p class="como-leer"><b>Cómo leer este gráfico:</b> la línea <span class="pos">verde</span> es lo que se cobraría por un egreso según su peso, con <b>su oferta</b> (precio base del tramo × peso). Fíjese en los <b>saltos</b> en los límites de tramo: el precio base cambia de golpe.
+        <p class="como-leer"><b>Cómo leer este gráfico:</b> la línea <span class="pos">verde</span> es lo que se cobraría por un egreso según su peso, con <b>${a.tramos.some(t => t.oferta == null) ? 'su oferta o, donde falta, el PB sugerido o el tope' : 'su oferta'}</b> (precio base del tramo × peso). Fíjese en los <b>saltos</b> en los límites de tramo: el precio base cambia de golpe.
           La línea <span class="neg">roja</span> es el costo esperado (PB de equilibrio de cada tramo × peso). La línea punteada gris es el máximo que permiten las bases. Zona verde = ganancia, zona roja = pérdida. Pase el mouse para ver cada peso.</p>
       </div>
       <div class="grid2">
@@ -343,15 +345,15 @@ const Licitacion = (() => {
     const conDatos = a.tramos.filter(t => t.n > 0);
     const eqGlobal = a.tot.eq;
     const pmax = Math.max(4, ...(st.fuente === 'egresos' ? a.tramos.flatMap(t => t.pesos) : a.tramos.map(t => t.pesoMedio || 0)).map(p => p * 1.05));
-    const xs = Array.from({ length: 401 }, (_, i) => pmax * i / 400);
-    const pbDe = (x, k) => { const t = a.tramos[tramoDe(x)]; return k === 'oferta' ? (t.oferta ?? t.sugerido ?? 0) : k === 'max' ? t.max : (t.eq ?? eqGlobal ?? 0); };
+    const xs = Array.from({ length: Math.round(pmax * 100) + 1 }, (_, i) => i / 100);   // paso 0,01: los límites 1,5 y 2,5 caen exactos
+    const pbDe = (x, k) => { const t = a.tramos[tramoDe(x)]; return k === 'oferta' ? (t.oferta ?? t.sugerido ?? (t.max > 0 ? t.max : 0)) : k === 'max' ? t.max : (t.eq ?? eqGlobal ?? 0); };
     const pago = xs.map(x => pbDe(x, 'oferta') * x);
     const costo = xs.map(x => pbDe(x, 'eq') * x);
     const tope = xs.map(x => pbDe(x, 'max') * x);
-    const usaSug = a.tramos.some(t => t.oferta == null && t.sugerido != null);
+    const usaSug = a.tramos.some(t => t.oferta == null);
     Charts.lineas($('l-ch-pago'), {
       xs, series: [
-        { name: usaSug ? 'Pago (oferta o PB sugerido)' : 'Pago con su oferta', ys: pago, color: '#1f7a4a', width: 3 },
+        { name: usaSug ? 'Pago (oferta; si falta, PB sugerido o tope)' : 'Pago con su oferta', ys: pago, color: '#1f7a4a', width: 3 },
         { name: 'Costo esperado', ys: costo, color: '#c21a2b', width: 2.5 },
         ...(a.tramos.every(t => t.max > 0) ? [{ name: 'Máximo de las bases', ys: tope, color: '#9a9aa2', width: 1.5, dash: '5 4' }] : [])
       ],
@@ -393,12 +395,20 @@ const Licitacion = (() => {
       toast('Caso de licitación cargado');
       e.target.value = '';
     });
-    ['l-s-peso', 'l-s-costo'].forEach(id => $(id).addEventListener('input', renderSim));
-    $('l-s-tec').addEventListener('change', renderSim);
+    const s0 = st.sim || {};
+    $('l-s-peso').value = s0.peso || ''; $('l-s-costo').value = s0.costo || ''; $('l-s-tec').value = s0.tec || '';
+    const guardaSim = () => { st.sim = { peso: $('l-s-peso').value, costo: $('l-s-costo').value, tec: $('l-s-tec').value }; save(); renderSim(); };
+    ['l-s-peso', 'l-s-costo'].forEach(id => $(id).addEventListener('input', guardaSim));
+    $('l-s-tec').addEventListener('change', guardaSim);
     $('l-preset').addEventListener('change', e => { cargarPreset(e.target.value, true); save(); render(); });
     $('l-fuente').addEventListener('change', e => { st.fuente = e.target.value; save(); render(); });
-    const numCampo = (id, k, t) => $(id).addEventListener('input', e => { const v = parse(e.target.value, t); if (v != null || e.target.value.trim() === '') { st[k] = v; save(); render(); } });
-    numCampo('l-l1', 'l1', 'decimal'); numCampo('l-l2', 'l2', 'decimal'); numCampo('l-pond', 'pond', 'decimal');
+    // bases = true: editar límites o ponderación convierte las bases en personalizadas; no se aceptan vacíos ni ceros
+    const numCampo = (id, k, t, bases) => $(id).addEventListener('input', e => {
+      const v = parse(e.target.value, t);
+      if (bases && !(v > 0)) return;
+      if (v != null || e.target.value.trim() === '') { st[k] = v; if (bases) st.preset = 'personalizada'; save(); render(); }
+    });
+    numCampo('l-l1', 'l1', 'decimal', true); numCampo('l-l2', 'l2', 'decimal', true); numCampo('l-pond', 'pond', 'decimal', true);
     numCampo('l-margen', 'margen', 'decimal'); numCampo('l-comp', 'comp', 'money');
     tab.addEventListener('input', e => {
       const i = e.target.dataset.t, k = e.target.dataset.k;

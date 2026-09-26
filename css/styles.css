@@ -284,3 +284,6 @@ input.auto { background: #f3f3f6; color: var(--red-dark); font-weight: 600; }
 .tramo-bars .tb i { display: block; height: 100%; background: #c9a3a9; }
 .grid2 > * { min-width: 0; }
 table.wrap td, table.wrap th { white-space: normal; }
+
+/* móvil: los gráficos conservan un ancho legible y se desplazan dentro de su tarjeta */
+@media (max-width: 700px) { .chart { overflow-x: auto; min-height: 0; } .chart svg { min-width: 640px; } }

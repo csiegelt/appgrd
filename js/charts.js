@@ -277,7 +277,7 @@ const Charts = (() => {
       const pInst = ecdf(st.sorted, v);
       let html = `<b>${fmt(v)}</b><br>Percentil institucional: <b>P${Math.round(pInst * 100)}</b> (${Math.round(pInst * 100)}% de egresos ≤ este valor)`;
       if (o.bench && o.bench.sd > 0) html += `<br>Percentil en referencia: <b>P${Math.round(normCdf(v, o.bench.mean, o.bench.sd) * 100)}</b>`;
-      if (hoverBin >= 0) html += `<br>Barra: ${fmt(edge(hoverBin))} – ${fmt(edge(hoverBin + 1))} · <b>${counts[hoverBin]}</b> egresos<br><i>Clic para ver los egresos de este rango</i>`;
+      if (hoverBin >= 0) html += `<br>Barra: ${fmt(edge(hoverBin))} – ${fmt(edge(hoverBin + 1))} · <b>${counts[hoverBin]}</b> egresos${o.onBinClick ? '<br><i>Clic para ver los egresos de este rango</i>' : ''}`;
       showTip(html, ev);
     });
     overlay.addEventListener('mouseleave', () => {
@@ -482,10 +482,11 @@ const Charts = (() => {
 
     // diferencia
     const dif = tp - tc, xb = xs[1] + bw + 16;
-    const col = dif >= 0 ? C.pos : C.neg;
+    const eq = Math.abs(dif) < 0.005;   // mismo redondeo a centavos que el resultado del caso
+    const col = eq || dif > 0 ? C.pos : C.neg;
     el('line', { x1: xs[0] + bw, x2: xb, y1: y(tp), y2: y(tp), stroke: col, 'stroke-dasharray': '4 3' }, s);
     el('path', { d: `M${xb},${y(tp)} L${xb + 8},${y(tp)} L${xb + 8},${y(tc)} L${xb},${y(tc)}`, fill: 'none', stroke: col, 'stroke-width': 2 }, s);
-    text(s, xb + 14, (y(tp) + y(tc)) / 2 + 4, (dif >= 0 ? 'Ganancia ' : 'Pérdida ') + GRD.clp(Math.abs(dif)),
+    text(s, xb + 14, (y(tp) + y(tc)) / 2 + 4, eq ? 'Equilibrio' : (dif > 0 ? 'Ganancia ' : 'Pérdida ') + GRD.clp(Math.abs(dif)),
       { 'font-size': 13, 'font-weight': 800, fill: col });
 
     // leyenda del costo
