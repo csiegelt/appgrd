@@ -17,6 +17,7 @@ const Alumno = (() => {
 
   let st = { hist: [], actual: null, nombre: '', modo: 'caso' };
   let borrarArmado = false;
+  let uidNivel = null;
 
   // ---------- persistencia ----------
   function load() {
@@ -36,8 +37,10 @@ const Alumno = (() => {
     let t = String(s).trim().replace(/[\s$%]/g, '').replace(/[−–—]/g, '-');
     if (!t) return null;
     if (tipo === 'money' || tipo === 'int') {
+      // Puntos como separador de miles sólo si agrupan de a 3 ("7.020.000"); un punto suelto es decimal ("501428.57").
       if ((t.match(/,/g) || []).length > 1) t = t.replace(/,/g, '');
-      else t = t.replace(/\./g, '').replace(',', '.');
+      else if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+      else if (/^[-+]?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
     } else if (t.includes(',')) {
       t = t.replace(/\./g, '').replace(',', '.');
     } else if ((t.match(/\./g) || []).length > 1) {
@@ -64,7 +67,7 @@ const Alumno = (() => {
     if (p.tipo === 'choice') return 'Opción incorrecta.';
     const v = parseEntrada(raw, p.tipo);
     if (v == null) return 'No se pudo leer el número. Use el formato 7.020.000 o 2,34.';
-    const e = (p.errores || []).find(e => Math.abs(v - e.v) <= tolerancia(p) + 1e-9);
+    const e = (p.errores || []).find(e => Math.abs(v - e.v) <= (e.tol ?? tolerancia(p)) + 1e-9);
     return e ? e.msg : 'Incorrecto. Revise el cálculo o pida una pista.';
   }
   function fmtRespuesta(p, v) {
@@ -77,6 +80,8 @@ const Alumno = (() => {
   }
   // Nota chilena, escala 1,0–7,0 con 60 % de exigencia.
   const nota = p => p < 0.6 ? 1 + 3 * p / 0.6 : 4 + 3 * (p - 0.6) / 0.4;
+  // Aprueba con 4,0 o más, comparando la nota tal como se muestra (1 decimal).
+  const aprueba = n => Math.round(n * 10) / 10 >= 4;
 
   // ---------- generación de casos (reproducible por código) ----------
   function mulberry32(a) {
@@ -139,11 +144,13 @@ const Alumno = (() => {
     if (nivel === 3) {
       const sup = c.dias > c.pcs, inf = c.dias < c.pci;
       const tipo = sup ? 'Outlier superior' : inf ? 'Outlier inferior' : 'Inlier';
-      const diasAd = sup ? Math.max(0, c.dias - c.pcs - c.p50) : 0;
+      // sinOutlier: caso creado desde un análisis en que el convenio no paga outlier
+      const pagaOut = sup && !c.sinOutlier;
+      const diasAd = pagaOut ? Math.max(0, c.dias - c.pcs - c.p50) : 0;
       const valorDia = c.em > 0 ? pagoBase / c.em : 0;
       const adicional = diasAd * valorDia;
       const pagoTotal = pagoBase + adicional + aj;
-      const resultado = pagoTotal - c.costo;
+      const resultado = Math.round((pagoTotal - c.costo) * 100) / 100 + 0;
       const sev = /^\d{6}$/.test(c.grd || '') ? c.grd[5] : null;
       const SEV = { 1: '1 · Menor', 2: '2 · Moderada', 3: '3 · Mayor' };
 
@@ -163,14 +170,14 @@ const Alumno = (() => {
       q({ id: 'diasad', texto: 'Días adicionales a pagar', tipo: 'int', resp: diasAd,
         pista: 'Sólo un outlier superior tiene días adicionales: días − PCS − P50 (período de carencia). Si da negativo, o no es outlier superior, es 0.',
         errores: [
-          ...(sup && c.dias - c.pcs !== diasAd ? [{ v: c.dias - c.pcs, msg: 'Le faltó descontar el período de carencia (P50 del GRD).' }] : []),
-          ...(!sup && c.dias - c.pcs > 0 ? [] : []),
-          ...(c.dias - c.pcs - c.p50 < 0 && sup ? [{ v: c.dias - c.pcs - c.p50, msg: 'Si el cálculo da negativo, los días adicionales son 0.' }] : [])
+          ...(pagaOut && c.dias - c.pcs !== diasAd ? [{ v: c.dias - c.pcs, msg: 'Le faltó descontar el período de carencia (P50 del GRD).' }] : []),
+          ...(pagaOut && c.dias - c.pcs - c.p50 < 0 ? [{ v: c.dias - c.pcs - c.p50, msg: 'Si el cálculo da negativo, los días adicionales son 0.' }] : []),
+          ...(sup && c.sinOutlier ? [{ v: Math.max(0, c.dias - c.pcs - c.p50), msg: 'En este caso el convenio no paga outlier: los días adicionales son 0.' }] : [])
         ] });
-      paso('Días adicionales', sup ? 'máx(0; días − PCS − P50)' : 'No es outlier superior → 0',
-        sup ? `${c.dias} − ${c.pcs} − ${c.p50} = ${c.dias - c.pcs - c.p50}` : '—', num(diasAd, 0));
+      paso('Días adicionales', sup && c.sinOutlier ? 'El convenio no paga outlier → 0' : sup ? 'máx(0; días − PCS − P50)' : 'No es outlier superior → 0',
+        pagaOut ? `${c.dias} − ${c.pcs} − ${c.p50} = ${c.dias - c.pcs - c.p50}` : '—', num(diasAd, 0));
 
-      if (sup) {
+      if (pagaOut) {
         q({ id: 'valordia', texto: 'Valor día adicional (pago base ÷ EM norma)', tipo: 'money', rel: 0.005, resp: valorDia,
           pista: 'Divida el pago base por la estancia media (EM) de la norma del GRD.',
           errores: [{ v: c.pb / c.em, msg: 'Use el pago base (precio base × peso), no sólo el precio base.' }] });
@@ -178,7 +185,7 @@ const Alumno = (() => {
       }
       q({ id: 'adicional', texto: 'Pago adicional por outlier', tipo: 'money', rel: 0.005, resp: adicional,
         pista: 'Días adicionales × valor día. Si no hay días adicionales, el pago adicional es 0.' });
-      paso('Pago adicional', 'Días adicionales × valor día', sup ? `${diasAd} × ${clpDec(valorDia)}` : '—', clp(adicional));
+      paso('Pago adicional', 'Días adicionales × valor día', pagaOut ? `${diasAd} × ${clpDec(valorDia)}` : '—', clp(adicional));
 
       q({ id: 'pagototal', texto: aj ? 'Pago total del episodio (incluye el ajuste por tecnología)' : 'Pago total del episodio', tipo: 'money', resp: pagoTotal,
         pista: aj ? 'Pago base + pago adicional por outlier + ajuste por tecnología.' : 'Pago base + pago adicional.',
@@ -189,7 +196,9 @@ const Alumno = (() => {
       paso('Pago total', aj ? 'Pago base + adicional + ajuste por tecnología' : 'Pago base + pago adicional',
         `${clp(pagoBase)} + ${clp(adicional)}${aj ? ` + ${clp(aj)}` : ''}`, clp(pagoTotal));
 
+      // Tolerancia extra: quien redondea el valor día a pesos acumula hasta ½ peso por día adicional.
       q({ id: 'resultado', texto: 'Resultado del episodio (pago total − costo)', tipo: 'money', resp: resultado,
+        tol: Math.max(2, Math.abs(resultado) * 0.001, diasAd / 2 + 1),
         pista: 'Reste el costo total asignado al pago total. Si es negativo, anteponga el signo menos.',
         errores: [...signo(resultado), ...(adicional > 0 || aj ? [{ v: pagoBase - c.costo, msg: 'Use el pago total (incluye los pagos adicionales), no sólo el pago base.' }] : [])] });
       paso('Resultado', 'Pago total − costo', `${clp(pagoTotal)} − ${clp(c.costo)}`, clp(resultado));
@@ -198,7 +207,7 @@ const Alumno = (() => {
 
     // niveles 1 y 2
     const pagoTot = pagoBase + aj;
-    const resultado = pagoTot - c.costo;
+    const resultado = Math.round((pagoTot - c.costo) * 100) / 100 + 0;
     q({ id: 'pago', texto: 'Pago GRD del episodio', tipo: 'money', resp: pagoBase,
       pista: 'Multiplique el precio base por el peso del GRD.',
       errores: [{ v: c.pb + c.peso, msg: 'El pago es una multiplicación, no una suma.' }] });
@@ -215,9 +224,10 @@ const Alumno = (() => {
 
     if (nivel === 2) {
       const rec = c.costo > 0 ? pagoTot / c.costo * 100 : 0;
-      q({ id: 'recup', texto: '% de recuperación (pago ÷ costo × 100)', tipo: 'percent', resp: rec,
-        pista: 'Divida el pago por el costo y multiplique por 100. Sobre 100 % el pago cubre el costo.',
+      q({ id: 'recup', texto: '% de recuperación (pago ÷ costo × 100, con 1 decimal)', tipo: 'percent', resp: rec,
+        pista: 'Divida el pago por el costo y multiplique por 100; redondee a 1 decimal. Sobre 100 % el pago cubre el costo.',
         errores: [
+          { v: Math.round(rec), tol: 0.001, msg: 'Va bien: responda con 1 decimal (ej. 127,6).' },
           { v: rec / 100, msg: 'Exprese el resultado como porcentaje (multiplique por 100).' },
           ...(pagoTot > 0 ? [{ v: c.costo / pagoTot * 100, msg: 'Invirtió la división: es pago ÷ costo.' }] : [])
         ] });
@@ -226,7 +236,7 @@ const Alumno = (() => {
       const cup = c.costo / c.peso;
       q({ id: 'cup', texto: 'Costo por unidad de peso (costo ÷ peso)', tipo: 'money', rel: 0.005, resp: cup,
         pista: 'Divida el costo por el peso. Si el resultado es mayor que el precio base, el episodio pierde.',
-        errores: [{ v: c.peso / c.costo, msg: 'Invirtió la división: es costo ÷ peso.' }] });
+        errores: [{ v: c.peso / c.costo, tol: c.peso / c.costo / 2, msg: 'Invirtió la división: es costo ÷ peso.' }] });
       paso('Costo por unidad de peso', 'Costo ÷ peso', `${clp(c.costo)} ÷ ${fmtPeso(c.peso)}`,
         clp(cup) + (aj ? ' — con ajuste por tecnología, compare el resultado total' : cup > c.pb ? ' — mayor que el precio base → pérdida' : ' — no supera el precio base → sin pérdida'));
 
@@ -291,11 +301,12 @@ const Alumno = (() => {
     q({ id: 'iema', texto: 'IEMA (EM observada ÷ EM esperada)', tipo: 'decimal', tol: 0.01, resp: iema,
       pista: 'EM observada = Σ días ÷ n. EM esperada = Σ EM norma ÷ n. IEMA = observada ÷ esperada.',
       errores: [{ v: emEsp / emObs, msg: 'Invirtió la división: IEMA = EM observada ÷ EM esperada.' }] });
-    paso('EM observada', 'Σ días ÷ n', `${sumDias} ÷ ${n}`, num(emObs, 2));
-    paso('EM esperada', 'Σ EM norma ÷ n', `${fmtN(sumEm)} ÷ ${n}`, num(emEsp, 2));
-    paso('IEMA', 'EM observada ÷ EM esperada', `${num(emObs, 2)} ÷ ${num(emEsp, 2)}`, num(iema, 3));
+    paso('EM observada', 'Σ días ÷ n', `${sumDias} ÷ ${n}`, fmtN(emObs));
+    paso('EM esperada', 'Σ EM norma ÷ n', `${fmtN(sumEm)} ÷ ${n}`, fmtN(emEsp));
+    paso('IEMA', 'EM observada ÷ EM esperada', `${fmtN(emObs)} ÷ ${fmtN(emEsp)}`, num(iema, 3));
 
-    const efi = iema > 1 ? 'Mayores que la norma (IEMA > 1)' : 'Iguales o menores que la norma (IEMA ≤ 1)';
+    // Redondeo: la suma flotante de EM con decimales puede dar 1,0000000000000002 en un IEMA exacto de 1.
+    const efi = Math.round(iema * 1e6) / 1e6 > 1 ? 'Mayores que la norma (IEMA > 1)' : 'Iguales o menores que la norma (IEMA ≤ 1)';
     q({ id: 'efi', texto: '¿Las estancias del grupo son mayores o menores que la norma?', tipo: 'choice',
       opciones: ['Mayores que la norma (IEMA > 1)', 'Iguales o menores que la norma (IEMA ≤ 1)'], resp: efi,
       pista: 'Compare el IEMA con 1,0.' });
@@ -335,7 +346,8 @@ const Alumno = (() => {
   function renderPractica() {
     $('a-nombre').value = document.activeElement === $('a-nombre') ? $('a-nombre').value : st.nombre;
     const ej = st.actual;
-    if (ej && document.activeElement !== $('a-nivel')) $('a-nivel').value = String(ej.nivel);
+    // El selector toma el nivel del ejercicio sólo cuando cambia el ejercicio (no pisa la elección del alumno).
+    if (ej && ej.uid !== uidNivel) { $('a-nivel').value = String(ej.nivel); uidNivel = ej.uid; }
     const nv = +$('a-nivel').value;
     $('a-nivel-desc').textContent = NIVELES[nv].desc;
     renderScore();
@@ -366,8 +378,8 @@ const Alumno = (() => {
         ${fila('P50 del GRD (carencia)', num(c.p50, 0) + ' días')}${filaTec}${fila('Costo total asignado', clp(c.costo))}</tbody></table>`;
       reglas = `<div class="reglas"><b>Reglas de este ejercicio</b><ul>
         <li><b>Inlier</b> (PCI ≤ días ≤ PCS): pago = precio base × peso.</li>
-        <li><b>Outlier superior</b> (días &gt; PCS): pago base + días adicionales × valor día.<br>
-          Días adicionales = días − PCS − P50 (mínimo 0). Valor día = pago base ÷ EM norma.</li>
+        <li><b>Outlier superior</b> (días &gt; PCS): ${c.sinOutlier ? 'en este caso el convenio <b>no paga adicional por outlier</b>: días adicionales = 0 y pago = precio base × peso.' : `pago base + días adicionales × valor día.<br>
+          Días adicionales = días − PCS − P50 (mínimo 0). Valor día = pago base ÷ EM norma.`}</li>
         <li><b>Outlier inferior</b> (días &lt; PCI): pago = precio base × peso (sin ajuste).</li>
         ${c.ajusteTec > 0 ? '<li><b>Ajuste por tecnología</b>: se suma al pago total, una vez por egreso.</li>' : ''}</ul></div>`;
       pie = 'Ejercicio con reglas simplificadas de outlier. Las reglas reales dependen de la norma técnica y del convenio vigente.';
@@ -416,7 +428,7 @@ const Alumno = (() => {
   }
 
   function renderFeedback(ej) {
-    if (!ej.intentos) { $('a-feedback').innerHTML = ''; return; }
+    if (!ej.intentos || !Object.keys(ej.estado).length) { $('a-feedback').innerHTML = ''; return; }
     const total = ej.preguntas.length;
     const ok = ej.preguntas.filter(p => ej.estado[p.id]?.ok).length;
     const pct = ok / total;
@@ -449,7 +461,7 @@ const Alumno = (() => {
     $('a-score').innerHTML = [
       kpi('Ejercicios revisados', num(hs.length, 0), quien),
       kpi('Promedio de aciertos', num(prom * 100, 0) + ' %', ''),
-      kpi('Nota promedio', num(notaProm, 1), 'Escala 1,0–7,0 · 60 %', notaProm >= 4 ? 'pos' : 'neg'),
+      kpi('Nota promedio', num(notaProm, 1), 'Escala 1,0–7,0 · 60 %', aprueba(notaProm) ? 'pos' : 'neg'),
       kpi('Ejercicios perfectos', num(perfectos, 0), 'Todas las respuestas correctas')
     ].join('');
   }
@@ -460,7 +472,7 @@ const Alumno = (() => {
     $('a-hist').innerHTML = `<thead><tr><th>Fecha</th><th>Alumno</th><th>Código</th><th>Nivel</th><th class="num">Correctas</th><th class="num">%</th><th class="num">Nota</th><th class="num">Intentos</th><th>Vio solución</th></tr></thead>
       <tbody>${rows.map(h => `<tr><td>${esc(h.fecha)}</td><td>${esc(h.alumno || '—')}</td><td>${esc(h.codigo)}</td><td>${h.nivel}</td>
         <td class="num">${h.correctas}/${h.total}</td><td class="num">${num(h.correctas / h.total * 100, 0)} %</td>
-        <td class="num ${nota(h.correctas / h.total) >= 4 ? 'pos' : 'neg'}">${num(nota(h.correctas / h.total), 1)}</td>
+        <td class="num ${aprueba(nota(h.correctas / h.total)) ? 'pos' : 'neg'}">${num(nota(h.correctas / h.total), 1)}</td>
         <td class="num">${h.intentos}</td><td>${h.vioSolucion ? 'Sí' : 'No'}</td></tr>`).join('')
       || '<tr><td colspan="9" class="hint">Sin ejercicios revisados</td></tr>'}</tbody>`;
   }
@@ -552,6 +564,7 @@ const Alumno = (() => {
         <p class="hint">Mínimo 2 egresos. Si el GRD está en el catálogo, el peso y la EM se completan solos.</p>`;
     }
     $('a-propio-form').innerHTML = html;
+    $('a-propio-form').dataset.nivel = nv;   // el nivel queda fijado al del formulario abierto
     if (nv === 4) { for (let i = 0; i < 3; i++) agregarFila(); $('a-add-fila').onclick = agregarFila; }
     $('a-propio-card').hidden = false;
     $('a-propio-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -584,14 +597,14 @@ const Alumno = (() => {
     return o;
   }
   function crearPropio() {
-    const nv = +$('a-nivel').value;
+    const nv = +$('a-propio-form').dataset.nivel || +$('a-nivel').value;
     const err = m => { $('a-propio-error').textContent = m; };
     let caso;
     if (nv < 4) {
       caso = leerCampos($('a-propio-form'));
       if (!(caso.pb > 0)) return err('Ingrese un precio base mayor a 0.');
       if (!(caso.peso > 0)) return err('Ingrese un peso mayor a 0.');
-      if (caso.costo == null || caso.costo < 0) return err('Ingrese el costo total (0 o más).');
+      if (!(caso.costo > 0)) return err('Ingrese el costo total (mayor a 0).');
       if (nv === 3) {
         for (const k of ['dias', 'pci', 'pcs', 'p50']) if (caso[k] == null || caso[k] < 0 || !Number.isInteger(caso[k])) return err('Días, PCI, PCS y P50 deben ser números enteros de 0 o más.');
         if (!(caso.em > 0)) return err('Ingrese la EM norma (mayor a 0).');
@@ -603,12 +616,12 @@ const Alumno = (() => {
       const pb = parseEntrada($('a-propio-form').querySelector('[data-campo="pb"]').value, 'money');
       if (!(pb > 0)) return err('Ingrese un precio base mayor a 0.');
       const egresos = [];
-      for (const tr of document.querySelectorAll('#a-propio-filas tbody tr')) {
+      for (const [i, tr] of [...document.querySelectorAll('#a-propio-filas tbody tr')].entries()) {
         const e = leerCampos(tr);
         const vacia = e.peso == null && e.dias == null && e.em == null && e.costo == null && !e.grd;
         if (vacia) continue;
-        if (!(e.peso > 0) || e.dias == null || e.dias < 0 || !Number.isInteger(e.dias) || !(e.em > 0) || e.costo == null || e.costo < 0)
-          return err(`Revise el egreso ${egresos.length + 1}: peso y EM mayores a 0, días enteros y costo de 0 o más.`);
+        if (!(e.peso > 0) || e.dias == null || e.dias < 0 || !Number.isInteger(e.dias) || !(e.em > 0) || !(e.costo > 0))
+          return err(`Revise el egreso ${i + 1}: peso, EM y costo mayores a 0, y días enteros.`);
         const cat = catMap.get(e.grd);
         if (cat) e.desc = cat.descripcion;
         egresos.push(e);

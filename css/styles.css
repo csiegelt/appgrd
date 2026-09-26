@@ -78,6 +78,7 @@ code { background: #f0f0f3; padding: 1px 5px; border-radius: 4px; font-size: 12p
 label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
 label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-weight: 500; font-size: 13px; }
 label.wide { grid-column: 1 / -1; }
+label.check input { flex: none; }
 input, select {
   font: inherit; color: var(--ink); padding: 8px 10px; border: 1px solid #cfcfd6;
   border-radius: 7px; background: #fff; min-width: 0;
@@ -191,7 +192,8 @@ table.mini th { position: static; cursor: default; }
 .alumno-bar > label { min-width: 200px; }
 .inline { display: flex; gap: 6px; }
 .inline input { width: 110px; }
-.inline-label { flex-direction: row; align-items: center; gap: 8px; }
+.inline-label { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; max-width: 100%; }
+.inline-label select { max-width: 100%; }
 .kpis.compact { margin: 8px 0 0; }
 .kpis.compact .val { font-size: 18px; }
 .empty-state { text-align: center; color: var(--muted); padding: 28px 18px; }
@@ -259,7 +261,7 @@ ol.pasos h4 { margin: 0 0 4px; color: var(--red-dark); font-size: 14px; }
   body { background: #fff; }
   main { padding: 0; max-width: none; }
   .card { break-inside: avoid; border-color: #bbb; }
-  .grid2 { grid-template-columns: 1fr 1fr; }
+  .grid2 { grid-template-columns: 1fr; }
 }
 
 /* ---------- título docente ---------- */

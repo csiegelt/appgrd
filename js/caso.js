@@ -7,6 +7,8 @@ const Caso = (() => {
   const fmtN = v => new Intl.NumberFormat('es-CL', { maximumFractionDigits: 4 }).format(v);
   const fmtPeso = v => new Intl.NumberFormat('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(v);
   const parse = (s, t) => Alumno.parseEntrada(s, t);
+  const nd = n => num(n, 0) + (n === 1 ? ' día' : ' días');
+  const pesosDec = v => '$' + num(v, 2);
 
   // Campos del formulario: clave -> [id, tipo]
   const CAMPOS = {
@@ -113,23 +115,30 @@ const Caso = (() => {
     }
     if (!(d.pb > 0)) faltan.push('precio base');
     if (!(d.peso > 0)) faltan.push('peso del GRD');
-    const hayDesglose = d.diacama != null || ITEMS.some(([k]) => d[k] != null);
+    // Un desglose con puros ceros no reemplaza al costo total ingresado.
+    const hayDesglose = d.diacama > 0 || ITEMS.some(([k]) => d[k] > 0);
     const diasOk = d.dias != null && d.dias >= 0 && Number.isInteger(d.dias);
-    if (d.dias != null && !diasOk) faltan.push('días de estada (número entero)');
-    if (hayDesglose && d.diacama != null && d.diacama > 0 && !diasOk) faltan.push('días de estada (para calcular el día cama)');
+    if (d.dias != null && !diasOk) faltan.push('días de estada (número entero de 0 o más)');
+    [['pci', 'PCI'], ['pcs', 'PCS'], ['p50', 'P50']].forEach(([k, n]) => {
+      if (d[k] != null && !(d[k] >= 0 && Number.isInteger(d[k]))) faltan.push(`${n} (número entero de 0 o más)`);
+    });
+    if (hayDesglose && d.diacama > 0 && !diasOk) faltan.push('días de estada (para calcular el día cama)');
     if (!hayDesglose && d.costoTotal == null) faltan.push('costos (desglose o costo total)');
+    if (d.costoTotal != null && d.costoTotal < 0) faltan.push('costo total (0 o más)');
+    [['diacama', 'Día cama'], ...ITEMS].forEach(([k, n]) => { if (d[k] != null && d[k] < 0) faltan.push(`${n} (monto de 0 o más)`); });
     if (faltan.length) return { faltan, tramo };
 
     const dias = diasOk ? d.dias : null;
     const items = [];
     if (hayDesglose) {
-      if (d.diacama != null && d.diacama > 0) items.push({ k: 'diacama', name: 'Día cama', detalle: `${num(dias, 0)} días × ${clp(d.diacama)}`, value: d.diacama * dias, tipo: 'variable' });
+      if (d.diacama > 0) items.push({ k: 'diacama', name: 'Día cama', detalle: `${nd(dias)} × ${clp(d.diacama)}`, value: d.diacama * dias, tipo: 'variable' });
       ITEMS.forEach(([k, n, t]) => { if (d[k] != null && d[k] > 0) items.push({ k, name: n, value: d[k], tipo: t }); });
       if (d.costoTotal != null) avisos.push('Se usó el desglose de costos; el "costo total directo" ingresado se ignoró.');
     } else {
       items.push({ k: 'total', name: 'Costo total', value: d.costoTotal, tipo: 'variable' });
     }
     const costo = items.reduce((a, i) => a + i.value, 0);
+    if (!(costo > 0)) return { faltan: ['costos mayores a $0'], tramo };
     const pagoBase = d.pb * d.peso;
 
     const tieneNorma = d.em > 0 && d.pci != null && d.pcs != null && d.pcs >= d.pci;
@@ -140,6 +149,7 @@ const Caso = (() => {
     const tipo = !tieneNorma || dias == null ? null : sup ? 'Outlier superior' : inf ? 'Outlier inferior' : 'Inlier';
     const reglas = !!d.outlier && tieneNorma;
     if (d.outlier && !tieneNorma) avisos.push('La regla de outlier necesita EM norma, PCI, PCS y P50: no se aplicó.');
+    if (reglas && d.p50 == null) avisos.push('P50 vacío: la regla de outlier se aplicó sin período de carencia (P50 = 0). Ingrese el P50 del GRD.');
     const umbral = tieneNorma ? d.pcs + p50 : Infinity;
     const valorDia = tieneNorma ? pagoBase / d.em : 0;
     const diasAd = sup ? Math.max(0, dias - d.pcs - p50) : 0;
@@ -148,7 +158,8 @@ const Caso = (() => {
     const tec = ajustesTecnologia(d.tec);
     const ajusteTec = tec.total;
     const pago = pagoBase + adicional + ajusteTec;
-    const resultado = pago - costo;
+    // Redondeo a centavos: evita que el ruido de punto flotante muestre "PIERDE $0" en un equilibrio exacto.
+    const resultado = Math.round((pago - costo) * 100) / 100 + 0;
     const recuperacion = costo > 0 ? pago / costo : null;
     const cup = costo / d.peso;
     const pagoPorPeso = pago / d.peso;
@@ -173,10 +184,14 @@ const Caso = (() => {
       else equilibrio = vDia > valorDia ? umbral + (pagoEn(umbral) - costoEn(umbral)) / (vDia - valorDia) : Infinity;
     }
     const diasMax = isFinite(equilibrio) ? Math.floor(equilibrio + 1e-9) : null;
+    // Con pago por outlier y un valor día mayor que el costo diario, después de PCS + P50 el pago vuelve a alcanzar al costo.
+    let recupera = Infinity;
+    if (reglas && isFinite(equilibrio) && equilibrio <= umbral && valorDia > vDia)
+      recupera = Math.max(umbral, umbral + (costoEn(umbral) - pagoEn(umbral)) / (valorDia - vDia));
 
     return {
       d, items, avisos, costo, pagoBase, pago, adicional, tramo, tec, ajusteTec, adicionalPotencial, diasAd, valorDia, resultado, recuperacion,
-      cup, pagoPorPeso, pbEq, tieneNorma, tipo, sup, inf, reglas, umbral, p50, dias, fijo, vDia, pagoEn, costoEn, equilibrio, diasMax
+      cup, pagoPorPeso, pbEq, tieneNorma, tipo, sup, inf, reglas, umbral, p50, dias, fijo, vDia, pagoEn, costoEn, equilibrio, diasMax, recupera
     };
   }
 
@@ -185,6 +200,7 @@ const Caso = (() => {
     const box = $('k-resultado');
     const d = leer();
     const vacio = Object.keys(CAMPOS).every(k => d[k] == null || d[k] === '');
+    $('k-pb').readOnly = false; $('k-pb').classList.remove('auto');
     if (vacio) {
       box.innerHTML = `<div class="card empty-state"><p>Ingrese los datos del caso o elija un <b>caso de ejemplo</b> arriba.<br>
         Mínimo: precio base, peso del GRD y los costos. Con días de estada, EM, PCI y PCS se analiza también la estadía.</p></div>`;
@@ -205,10 +221,10 @@ const Caso = (() => {
 
     box.innerHTML = `
       <div class="card veredicto ${gana ? 'gana' : pierde ? 'pierde' : ''}">
-        <div class="v-caso">${titulo}${d.grd || d.desc ? ` · <span>GRD ${esc(d.grd || '—')} ${esc(d.desc || '')}</span>` : ''}</div>
+        <div class="v-caso">${titulo}${d.grd || d.desc ? ` · <span>${d.grd ? 'GRD ' + esc(d.grd) + ' ' : ''}${esc(d.desc || '')}</span>` : ''}</div>
         ${d.relato ? `<p class="v-relato">${esc(d.relato)}</p>` : ''}
         <div class="v-main">La clínica <b>${verbo}</b>${a.resultado !== 0 ? ` <b>${clp(Math.abs(a.resultado))}</b>` : ''} con este paciente</div>
-        <div class="v-formula">${clp(d.pb)} × ${fmtPeso(d.peso)} = ${clp(a.pagoBase)}${a.adicional > 0 ? ` + ${clp(a.adicional)} (outlier)` : ''}${a.ajusteTec > 0 ? ` + ${clp(a.ajusteTec)} (tecnología)` : ''}${a.adicional > 0 || a.ajusteTec > 0 ? ` = ${clp(a.pago)}` : ''}
+        <div class="v-formula">${clp(d.pb)} × ${fmtPeso(d.peso)} = ${clp(a.pagoBase)}${a.adicional > 0 || a.ajusteTec > 0 ? ` &nbsp;·&nbsp; Pago total = ${clp(a.pagoBase)}${a.adicional > 0 ? ` + ${clp(a.adicional)} (outlier)` : ''}${a.ajusteTec > 0 ? ` + ${clp(a.ajusteTec)} (tecnología)` : ''} = ${clp(a.pago)}` : ''}
           &nbsp;·&nbsp; Costo ${clp(a.costo)} &nbsp;·&nbsp; Recupera ${GRD.pct(a.recuperacion)}</div>
         ${a.avisos.length ? `<div class="v-avisos">${a.avisos.map(x => '⚠ ' + esc(x)).join('<br>')}</div>` : ''}
       </div>
@@ -240,7 +256,8 @@ const Caso = (() => {
         <div class="card">
           <h3>Curva: resultado según el precio base</h3>
           <div id="k-ch-pb" class="chart"></div>
-          <p class="como-leer"><b>Cómo leer este gráfico:</b> muestra cuánto ganaría o perdería la clínica con este mismo paciente si el precio base negociado fuera distinto. Donde la línea cruza el cero está el <b>precio base de equilibrio</b> (${clp(a.pbEq)}): con un precio base menor, este caso da pérdida.</p>
+          <p class="como-leer"><b>Cómo leer este gráfico:</b> muestra cuánto ganaría o perdería la clínica con este mismo paciente si el precio base negociado fuera distinto.
+            ${a.pbEq > 0 ? `Donde la línea cruza el cero está el <b>precio base de equilibrio</b> (${clp(a.pbEq)}): con un precio base menor, este caso da pérdida.` : 'Aquí los pagos que no dependen del precio base (ajuste por tecnología) ya cubren todo el costo: el caso gana con cualquier precio base.'}</p>
         </div>
         <div class="card">
           <h3>¿Dónde se ubica este caso frente a los demás egresos?</h3>
@@ -265,7 +282,7 @@ const Caso = (() => {
       ${fila(a.tramo ? `Precio base del ${a.tramo.nombre} <small>(${a.tramo.rango} · ${a.tramo.fuente})</small>` : 'Precio base pactado', clp(d.pb))}
       ${fila('Peso del episodio', fmtPeso(d.peso))}
       ${fila('Pago GRD base (precio base × peso)', clp(a.pagoBase))}
-      ${a.adicional > 0 ? fila(`Pago adicional outlier (${a.diasAd} días × ${clp(a.valorDia)})`, clp(a.adicional)) : ''}
+      ${a.adicional > 0 ? fila(`Pago adicional outlier (${nd(a.diasAd)} × ${pesosDec(a.valorDia)})`, clp(a.adicional)) : ''}
       ${a.tec.items.map(t => fila(`Ajuste por tecnología: ${esc(t.nombre)}`, clp(t.valor))).join('')}
       ${a.adicional > 0 || a.ajusteTec > 0 ? fila('Pago total', `<b>${clp(a.pago)}</b>`) : ''}
       ${a.items.map(i => fila(`&nbsp;&nbsp;· ${esc(i.name)}${i.detalle ? ` <small>(${esc(i.detalle)})</small>` : ''}`, clp(i.value), 'sub')).join('')}
@@ -275,7 +292,9 @@ const Caso = (() => {
       ${fila('Costo por unidad de peso (costo ÷ peso)', clp(a.cup))}
       ${a.dias != null ? fila('Días de estada', num(a.dias, 0) + (a.tieneNorma ? ` <small>(EM norma ${fmtN(d.em)} · rango ${d.pci}–${d.pcs})</small>` : '')) : ''}
       ${a.tipo ? fila('Tipo de estancia', `<span class="tag ${a.sup ? 'sup' : a.inf ? 'inf' : 'inlier'}">${a.tipo}</span>`) : ''}
-      ${a.diasMax != null && a.vDia > 0 ? fila('Días máximos sin pérdida (aprox.)', num(a.diasMax, 0)) : ''}
+      ${a.diasMax != null && a.vDia > 0 && !(a.dias >= a.recupera)
+        ? fila('Días máximos sin pérdida (aprox.)', a.equilibrio === 0 ? 'Ninguno: los costos fijos ya superan el pago' : num(a.diasMax, 0)) : ''}
+      ${isFinite(a.recupera) && a.dias >= a.recupera ? fila('Zona de pérdida por estadía (aprox.)', `días ${num(a.equilibrio, 1)} a ${num(a.recupera, 1)} <small>(después el pago por outlier vuelve a superar al costo)</small>`) : ''}
     </tbody></table>`;
   }
 
@@ -291,13 +310,13 @@ const Caso = (() => {
     if (a.tramo)
       t1 = `Según las bases de licitación, el precio base depende del <b>tramo de peso relativo</b>: un peso de ${fmtPeso(d.peso)} cae en el <b>${a.tramo.nombre}</b> (${a.tramo.rango}), con un precio base de ${clp(d.pb)} (${a.tramo.fuente}).<br>` + t1;
     if (a.adicional > 0)
-      t1 += `Como el paciente es <b>outlier superior</b>, se pagan ${a.diasAd} días adicionales (días − PCS − P50 = ${a.dias} − ${d.pcs} − ${a.p50}) a ${clp(a.valorDia)} cada uno (pago base ÷ EM): ${clp(a.adicional)}.`;
+      t1 += `Como el paciente es <b>outlier superior</b>, se ${a.diasAd === 1 ? 'paga 1 día adicional' : `pagan ${a.diasAd} días adicionales`} (días − PCS − P50 = ${a.dias} − ${d.pcs} − ${a.p50}) a ${pesosDec(a.valorDia)}${a.diasAd === 1 ? '' : ' cada uno'} (pago base ÷ EM): ${clp(a.adicional)}.`;
     if (a.ajusteTec > 0)
       t1 += ` Además, por las prestaciones de alto costo realizadas, las bases pagan un <b>ajuste por tecnología</b> (una sola vez por egreso): ${a.tec.items.map(t => `${esc(t.nombre)} ${clp(t.valor)}`).join(' + ')}.`;
     if (a.adicional > 0 || a.ajusteTec > 0)
       t1 += `<div class="calc">Pago total = ${clp(a.pagoBase)}${a.adicional > 0 ? ` + ${clp(a.adicional)}` : ''}${a.ajusteTec > 0 ? ` + ${clp(a.ajusteTec)}` : ''} = <b>${clp(a.pago)}</b></div>`;
     else if (a.sup && a.diasAd === 0)
-      t1 += `El paciente superó el punto de corte superior, pero sus ${a.dias - d.pcs} días extra caen dentro del período de carencia (P50 = ${a.p50} días), así que <b>no hay pago adicional</b>.`;
+      t1 += `El paciente superó el punto de corte superior, pero ${a.dias - d.pcs === 1 ? 'su día extra cae' : `sus ${a.dias - d.pcs} días extra caen`} dentro del período de carencia (P50 = ${nd(a.p50)}), así que <b>no hay pago adicional</b>.`;
     else if (a.sup && !a.reglas)
       t1 += `El paciente superó el punto de corte superior. En este análisis <b>no se aplica</b> pago por outlier; si el convenio lo pagara, recibiría ${clp(a.adicionalPotencial)} adicionales (active la casilla para verlo).`;
     P.push(['¿Cuánto recibe la clínica?', t1]);
@@ -313,7 +332,7 @@ const Caso = (() => {
     P.push(['¿Cuánto le costó a la clínica?', t2]);
 
     // 3. resultado
-    const rec = a.recuperacion != null ? num(a.recuperacion * 100, 0) : null;
+    const rec = a.recuperacion != null ? num(a.recuperacion * 100, 1) : null;
     P.push(['¿Se gana o se pierde?', `<div class="calc">Resultado = pago − costo = ${clp(a.pago)} − ${clp(a.costo)} = <b class="${a.resultado < 0 ? 'neg' : 'pos'}">${clp(a.resultado)}</b></div>
       ${a.resultado > 0 ? 'El pago es mayor que el costo: la clínica <b>gana</b>.' : a.resultado < 0 ? 'El costo es mayor que el pago: la clínica <b>pierde</b>.' : 'Pago y costo son iguales: la clínica queda en equilibrio.'}
       ${rec != null ? ` Recupera el <b>${rec} %</b> de lo que gastó: por cada $100 gastados recibe $${rec}.` : ''}`]);
@@ -323,12 +342,12 @@ const Caso = (() => {
     const ref = conExtras ? a.pagoPorPeso : d.pb;
     const refTxt = conExtras ? `el pago efectivo por unidad de peso (${clp(a.pagoPorPeso)}, incluye los pagos adicionales)` : `el precio base (${clp(d.pb)})`;
     P.push(['Otra forma de verlo: costo por unidad de peso', `El caso costó <b>${clp(a.cup)}</b> por cada unidad de peso (costo ÷ peso), ${a.cup > ref ? '<b>más</b>' : '<b>menos</b>'} que ${refTxt}.
-      Regla práctica: <i>si el costo por unidad de peso supera al precio base, el caso pierde</i>.`]);
+      Regla práctica: <i>si el costo por unidad de peso supera al ${conExtras ? 'pago efectivo por unidad de peso' : 'precio base'}, el caso pierde</i>.`]);
 
     // 5. estadía
     if (a.tieneNorma && a.dias != null) {
       const veces = a.dias / d.em;
-      let t5 = `El paciente estuvo <b>${a.dias} días</b>. Para este GRD la estancia media de la norma (EM) es ${fmtN(d.em)} días, y lo esperado va de ${d.pci} a ${d.pcs} días (puntos de corte).
+      let t5 = `El paciente estuvo <b>${nd(a.dias)}</b>. Para este GRD la estancia media de la norma (EM) es ${fmtN(d.em)} días, y lo esperado va de ${d.pci} a ${nd(d.pcs)} (puntos de corte).
         Por eso es <b>${a.tipo.toLowerCase()}</b>. Estuvo ${num(veces, 2)} veces la estancia media.`;
       if (a.dias > d.em) t5 += ` <br>Cada día por sobre la EM aumenta el costo, pero <b>no aumenta el pago</b> (el GRD paga lo mismo${a.reglas ? ' salvo el adicional por outlier' : ''}).`;
       else t5 += ' <br>Una estadía igual o menor a la esperada ayuda a que el costo quede bajo el pago.';
@@ -337,14 +356,21 @@ const Caso = (() => {
 
     // 6. equilibrio en días
     if (a.vDia > 0 && a.dias != null) {
-      let t6 = `Suponiendo un costo de <b>${clp(a.vDia)} por día</b> de hospitalización${a.fijo > 0 ? ` más <b>${clp(a.fijo)}</b> de costos fijos (pabellón, insumos, honorarios, otros)` : ''},`;
-      if (a.equilibrio === 0) t6 += ` los costos fijos por sí solos ya superan el pago GRD: el caso pierde aunque la estadía sea muy corta.`;
+      const varios = a.items.filter(i => i.tipo === 'variable').map(i => i.k === 'total' ? 'costo total' : i.name.toLowerCase()).join(' + ');
+      const fijos = a.items.filter(i => i.tipo === 'fijo').map(i => i.name.toLowerCase()).join(', ');
+      let t6 = `Suponiendo un costo de <b>${clp(a.vDia)} por día</b> de hospitalización (${varios}, repartido en ${nd(a.dias)})${a.fijo > 0 ? ` más <b>${clp(a.fijo)}</b> de costos fijos (${fijos})` : ''},`;
+      if (a.dias >= a.recupera)
+        t6 += ` el caso pierde ${a.equilibrio > 0 ? `desde el día ${num(a.equilibrio, 1)}` : 'con estadías cortas'} y hasta el día ${num(a.recupera, 1)}; después, el pago por outlier (${pesosDec(a.valorDia)} por día) crece más rápido que el costo diario. El paciente estuvo ${nd(a.dias)}: por eso la clínica <b>gana</b>.`;
+      else if (a.equilibrio === 0) t6 += ` los costos fijos por sí solos ya superan el pago GRD: el caso pierde aunque la estadía sea muy corta.`;
       else if (a.diasMax == null) t6 += ` el pago por outlier crece más rápido que el costo diario, por lo que con esta estructura no aparece pérdida por días adicionales.`;
       else {
-        t6 += ` el pago GRD alcanza para cubrir hasta <b>${a.diasMax} días</b> de estadía.`;
-        t6 += a.dias <= a.diasMax
-          ? ` El paciente estuvo ${a.dias}: le sobraron ${a.diasMax - a.dias} días de margen.`
-          : ` El paciente estuvo ${a.dias}: <b>${a.dias - a.diasMax} días más</b> de lo que el pago permite cubrir.`;
+        t6 += ` el pago GRD alcanza para cubrir hasta <b>${nd(a.diasMax)}</b> de estadía.`;
+        t6 += a.dias === a.diasMax
+          ? ` El paciente estuvo ${nd(a.dias)}: justo en el límite; un día más ya daría pérdida.`
+          : a.dias < a.diasMax
+          ? ` El paciente estuvo ${nd(a.dias)}: le ${a.diasMax - a.dias === 1 ? 'sobró' : 'sobraron'} ${nd(a.diasMax - a.dias)} de margen.`
+          : ` El paciente estuvo ${nd(a.dias)}: <b>${nd(a.dias - a.diasMax)} más</b> de lo que el pago permite cubrir.`;
+        if (isFinite(a.recupera)) t6 += ` Con estadías aún más largas, desde el día ${num(a.recupera, 1)} el pago por outlier vuelve a superar al costo.`;
       }
       P.push(['¿Hasta cuántos días se puede hospitalizar sin perder?', t6]);
     }
@@ -353,30 +379,42 @@ const Caso = (() => {
     if (a.resultado < 0) {
       P.push(['¿Qué tendría que cambiar para no perder?', `<ul>
         <li>Reducir el costo en al menos <b>${clp(-a.resultado)}</b> (costo máximo aceptable: ${clp(a.pago)}).</li>
-        <li>O negociar un precio base de al menos <b>${clp(a.pbEq)}</b>.</li>
-        ${a.diasMax != null && a.dias != null && a.dias > a.diasMax && a.diasMax > 0 ? `<li>O acortar la estadía a <b>${a.diasMax} días</b> o menos (con el mismo costo diario).</li>` : ''}
+        <li>O negociar un precio base de al menos <b>${clp(a.pbEq)}</b>${topeTramo(a) != null && a.pbEq > topeTramo(a) ? ` (ojo: supera el tope del ${a.tramo.nombre} en las bases, ${clp(topeTramo(a))}; una oferta sobre el tope es inadmisible)` : ''}.</li>
+        ${a.diasMax != null && a.dias != null && a.dias > a.diasMax && a.diasMax > 0 ? `<li>O acortar la estadía a <b>${nd(a.diasMax)}</b> o menos (con el mismo costo diario).</li>` : ''}
       </ul>`]);
     } else if (a.resultado > 0) {
-      P.push(['¿Cuánto margen hay?', `El costo podría subir hasta <b>${clp(a.resultado)}</b> (${num(a.resultado / a.costo * 100, 0)} %) antes de generar pérdida.
+      P.push(['¿Cuánto margen hay?', `El costo podría aumentar hasta en <b>${clp(a.resultado)}</b> (${num(a.resultado / a.costo * 100, 0)} %), es decir, llegar a ${clp(a.pago)}, antes de generar pérdida.
         El precio base podría bajar hasta ${clp(a.pbEq)} y el caso seguiría sin pérdida.`]);
     }
 
     return `<ol class="pasos">${P.map(([h, t]) => `<li><h4>${h}</h4><div>${t}</div></li>`).join('')}</ol>`;
   }
 
+  // Tope del tramo de licitación usado (o null).
+  const topeTramo = a => {
+    if (!a.tramo) return null;
+    const max = Licitacion._st().tramos[a.tramo.i].max;
+    return max > 0 ? max : null;
+  };
+
   function aprendizajes(a) {
     const d = a.d, L = [];
-    L.push('En GRD el ingreso depende del <b>diagnóstico y su severidad</b> (el peso), no de la cantidad de prestaciones realizadas.');
+    L.push('En GRD el ingreso depende del <b>GRD asignado</b> (diagnóstico principal, procedimientos y severidad por diagnósticos secundarios), que fija el peso; no de la cantidad de prestaciones realizadas.');
     if (a.resultado > 0 && a.cup <= d.pb) L.push(`Este caso es rentable porque el costo por unidad de peso (${clp(a.cup)}) quedó bajo el precio base (${clp(d.pb)}).`);
     else if (a.resultado > 0) L.push(`El costo por unidad de peso (${clp(a.cup)}) supera al precio base: el caso es rentable sólo gracias a los pagos adicionales (outlier o tecnología).`);
-    if (a.resultado < 0 && a.tieneNorma && a.dias > d.em) L.push(`La estadía prolongada (${a.dias} días vs. ${fmtN(d.em)} de la norma) explica buena parte de la pérdida: cada día extra suma costo sin sumar pago.`);
+    const costoExtra = a.tieneNorma && a.dias > d.em ? (a.dias - d.em) * a.vDia : 0;
+    if (a.resultado < 0 && costoExtra >= 0.3 * -a.resultado)
+      L.push(`La estadía prolongada (${nd(a.dias)} vs. ${fmtN(d.em)} de la norma) explica buena parte de la pérdida: cada día extra suma costo${a.reglas ? ' y sólo se paga (en parte) después de PCS + P50' : ' sin sumar pago'}.`);
     if (a.sup && a.reglas && a.adicional > 0 && a.resultado < 0) L.push('El pago adicional por outlier ayuda, pero normalmente no compensa todo el costo de una estadía muy larga.');
     if (a.ajusteTec > 0) L.push(`El ajuste por tecnología (${clp(a.ajusteTec)}) financia aparte las prestaciones de alto costo: sin él, este caso ${a.resultado - a.ajusteTec < 0 ? `<b>perdería ${clp(a.ajusteTec - a.resultado)}</b>` : `igual ganaría ${clp(a.resultado - a.ajusteTec)}`}.`);
     if (a.tramo) L.push('Con precios base por tramo, el pago cambia de golpe en los límites de peso (1,5 y 2,5): la calidad de la codificación es clave y FONASA la audita.');
     const mayor = [...a.items].sort((x, y) => y.value - x.value)[0];
     if (a.items.length > 1 && mayor.k === 'insumos' && mayor.value / a.costo > 0.25) L.push('Los insumos y prótesis pesan mucho en el costo: negociar su precio es clave para la rentabilidad.');
     if (a.items.length > 1 && mayor.k === 'diacama') L.push('El día cama es el principal costo: gestionar las altas oportunas mejora directamente el resultado.');
-    if (a.resultado >= 0 && a.resultado / a.costo < 0.08) L.push('El margen es estrecho: una complicación o un par de días más podrían convertir la ganancia en pérdida.');
+    if (a.resultado >= 0 && a.resultado / a.costo < 0.08) {
+      const extra = a.diasMax != null && a.dias != null && !isFinite(a.recupera) ? a.diasMax - a.dias + 1 : null;
+      L.push(`El margen es estrecho: una complicación${extra > 0 ? ` o ${extra === 1 ? 'un solo día más' : extra + ' días más'} de estadía` : ''} podría convertir la ganancia en pérdida.`);
+    }
     L.push('La <b>eficiencia</b> (estadías ajustadas a la norma, sin complicaciones evitables y con costos controlados) es lo que mejora el resultado en un sistema de pago por GRD.');
     return `<ul>${L.map(x => `<li>${x}</li>`).join('')}</ul>`;
   }
@@ -396,7 +434,8 @@ const Caso = (() => {
       $('k-ch-dias').innerHTML = '<p class="hint" style="padding:30px 0;text-align:center">Ingrese los días de estada para ver esta curva.</p>';
       leer.innerHTML = '';
     } else {
-      const maxX = Math.max(8, Math.ceil(Math.max(a.dias * 1.5, a.tieneNorma ? d.pcs + a.p50 + 5 : 0, isFinite(a.equilibrio) ? a.equilibrio * 1.25 : 0)));
+      const maxX = Math.max(8, Math.ceil(Math.max(a.dias * 1.5, a.tieneNorma ? d.pcs + a.p50 + 5 : 0, isFinite(a.equilibrio) ? a.equilibrio * 1.25 : 0,
+        isFinite(a.recupera) && a.recupera <= a.dias * 3 ? a.recupera * 1.1 : 0)));
       const xs = Array.from({ length: 241 }, (_, i) => maxX * i / 240);
       const pagoS = xs.map(a.pagoEn), costoS = xs.map(a.costoEn);
       const vl = [];
@@ -407,13 +446,14 @@ const Caso = (() => {
         if (a.reglas && a.p50 > 0) vl.push({ x: a.umbral, label: `PCS+P50 ${a.umbral}`, color: '#1f7a4a' });
       }
       if (isFinite(a.equilibrio) && a.equilibrio > 0) vl.push({ x: a.equilibrio, label: `Equilibrio ≈ ${num(a.equilibrio, 1)} d`, color: '#e0a800', dash: '', width: 2 });
+      if (isFinite(a.recupera) && a.recupera <= maxX) vl.push({ x: a.recupera, label: `Vuelve a ganar ≈ ${num(a.recupera, 1)} d`, color: '#1f7a4a', dash: '', width: 2 });
       Charts.lineas($('k-ch-dias'), {
         xs, series: [
           { name: 'Pago GRD', ys: pagoS, color: '#1f7a4a', width: 3 },
           { name: 'Costo acumulado', ys: costoS, color: '#c21a2b', width: 3 }
         ],
         fill: [0, 1], vlines: vl,
-        markers: [{ x: a.dias, y: a.costoEn(a.dias), label: `Este paciente: ${a.dias} días`, color: '#1d1d1f' }],
+        markers: [{ x: a.dias, y: a.costoEn(a.dias), label: `Este paciente: ${nd(a.dias)}`, color: '#1d1d1f' }],
         xLabel: 'Días de estada', yLabel: '$', fmtX: v => num(v, 0), fmtY: v => GRD.num(v / 1e6, 1) + 'M',
         hover: i => {
           const r = pagoS[i] - costoS[i];
@@ -421,14 +461,16 @@ const Caso = (() => {
         }
       });
       leer.innerHTML = `<b>Cómo leer este gráfico:</b> la línea <span class="pos">verde</span> es el pago GRD: es <b>plana</b> porque el asegurador paga lo mismo sin importar cuántos días se quede el paciente${a.reglas ? ' (sólo sube después de PCS + P50, por el pago de outlier)' : ''}.
-        La línea <span class="neg">roja</span> es el costo, que <b>sube con cada día</b> (${clp(a.vDia)} por día${a.fijo > 0 ? `, partiendo de ${clp(a.fijo)} de costos fijos` : ''}).
-        La zona verde es ganancia y la roja es pérdida. ${isFinite(a.equilibrio) && a.equilibrio > 0 ? `Las líneas se cruzan cerca del día <b>${num(a.equilibrio, 1)}</b>: desde ahí la clínica pierde.` : ''}
+        La línea <span class="neg">roja</span> es el costo, ${a.vDia > 0 ? `que <b>sube con cada día</b> (${clp(a.vDia)} por día${a.fijo > 0 ? `, partiendo de ${clp(a.fijo)} de costos fijos` : ''})` : `que aquí es <b>fijo</b> (${clp(a.fijo)}): ${a.dias > 0 ? 'ninguno de los costos ingresados depende de los días' : 'con 0 días no se puede estimar un costo por día'}`}.
+        La zona verde es ganancia y la roja es pérdida. ${isFinite(a.equilibrio) && a.equilibrio > 0 ? `Las líneas se cruzan cerca del día <b>${num(a.equilibrio, 1)}</b>: desde ahí la clínica pierde${isFinite(a.recupera) ? ` hasta cerca del día <b>${num(a.recupera, 1)}</b>, cuando el pago por outlier (${pesosDec(a.valorDia)} por día) vuelve a superar al costo` : ''}.` : ''}
         El punto negro es este paciente. Pase el mouse sobre la curva para ver el resultado día a día.
         <br><small>Supuesto: día cama, medicamentos y exámenes crecen con los días; pabellón, insumos, honorarios y otros son fijos del episodio. Sin desglose, todo el costo se reparte por día.</small>`;
     }
 
     // 3. Sensibilidad al precio base
-    const pbs = Array.from({ length: 101 }, (_, i) => d.pb * (0.5 + i / 100));
+    // El eje incluye siempre el precio base de equilibrio, para que se vea el cruce con cero.
+    const rEq = a.pbEq / d.pb, lo = Math.max(0, Math.min(0.5, rEq * 0.9)), hi = Math.max(1.5, rEq * 1.1);
+    const pbs = Array.from({ length: 101 }, (_, i) => d.pb * (lo + (hi - lo) * i / 100));
     const factor = (a.pagoBase + a.adicional) / d.pb;   // parte del pago proporcional al precio base (el ajuste por tecnología es fijo)
     const pagoP = p => p * factor + a.ajusteTec;
     const resS = pbs.map(p => pagoP(p) - a.costo);
@@ -456,7 +498,7 @@ const Caso = (() => {
       const pct = Math.round(Charts.ecdf(st.sorted, a.cup) * 100);
       leerDist.innerHTML = `<b>Cómo leer este gráfico:</b> la curva muestra el costo por unidad de peso de los ${vals.length} egresos cargados en la aplicación.
         La línea roja es <b>este caso</b> (${clp(a.cup)}): es más caro por unidad de peso que el <b>${pct} %</b> de los egresos.
-        Los casos a la derecha de la línea del precio base son los que generan pérdida.`;
+        Si los demás egresos se pagaran con el precio base de este caso (${clp(d.pb)}), los que quedan a la derecha de esa línea generarían pérdida.`;
     }
   }
 
@@ -493,8 +535,9 @@ const Caso = (() => {
       if (a.faltan) { toast('Complete primero: ' + a.faltan.join(', ')); return; }
       const d = a.d;
       const extra = a.ajusteTec > 0 ? { ajusteTec: a.ajusteTec, tecDetalle: a.tec.items.map(t => t.nombre).join(' + ') } : {};
+      // sinOutlier: el ejercicio respeta la casilla de outlier del análisis
       if (a.tieneNorma && a.dias != null)
-        Alumno.practicar(3, { pb: d.pb, grd: d.grd, desc: d.desc, peso: d.peso, dias: a.dias, em: d.em, pci: d.pci, pcs: d.pcs, p50: a.p50, costo: a.costo, ...extra });
+        Alumno.practicar(3, { pb: d.pb, grd: d.grd, desc: d.desc, peso: d.peso, dias: a.dias, em: d.em, pci: d.pci, pcs: d.pcs, p50: a.p50, costo: a.costo, sinOutlier: !a.reglas, ...extra });
       else Alumno.practicar(2, { pb: d.pb, peso: d.peso, costo: a.costo, ...extra });
     };
   }

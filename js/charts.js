@@ -467,8 +467,7 @@ const Charts = (() => {
     const PAL_C = ['#8a0d1e', '#b3263a', '#d0505f', '#e07b86', '#eba4ab', '#c9a3a9', '#f4c9cd', '#9a6b72'];
     const barra = (parts, xi, pal, titulo, total) => {
       let acc = 0;
-      parts.forEach((p, k) => {
-        if (!(p.value > 0)) return;
+      parts.filter(p => p.value > 0).forEach((p, k) => {
         const r = el('rect', { x: xi, y: y(acc + p.value), width: bw, height: y(acc) - y(acc + p.value), fill: pal[k % pal.length], stroke: '#fff', 'stroke-width': 1 }, s);
         r.addEventListener('mousemove', ev => showTip(`<b>${p.name}</b><br>${GRD.clp(p.value)}<br>${GRD.num(p.value / total * 100, 1)} % de ${titulo.toLowerCase()}`, ev));
         r.addEventListener('mouseleave', hideTip);

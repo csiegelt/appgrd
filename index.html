@@ -249,7 +249,7 @@
             <label>PCS · punto de corte superior <input id="k-pcs" inputmode="numeric" autocomplete="off"></label>
             <label>P50 · carencia (días) <input id="k-p50" inputmode="numeric" autocomplete="off"></label>
           </div>
-          <label class="check"><input type="checkbox" id="k-pbtramo"> Usar el precio base del tramo de peso según las bases de la pestaña <b>Licitación GRD</b> (su oferta o, si no hay, el tope)</label>
+          <label class="check"><input type="checkbox" id="k-pbtramo"> <span>Usar el precio base del tramo de peso según las bases de la pestaña <b>Licitación GRD</b> (su oferta o, si no hay, el tope)</span></label>
           <label class="check"><input type="checkbox" id="k-outlier"> Aplicar pago adicional por outlier superior: (días − PCS − P50) × pago base ÷ EM</label>
 
           <h4 class="sub">2 · Costos del episodio</h4>
@@ -514,7 +514,7 @@
         <h4>Estructura del código IR-GRD (6 dígitos)</h4>
         <table class="mini">
           <tr><th>Dígitos</th><th>Significado</th><th>Ejemplo 184103</th></tr>
-          <tr><td>1–2</td><td>CDM: Categoría Diagnóstica Mayor (01–23, sistema corporal)</td><td>18 · Infecciosas</td></tr>
+          <tr><td>1–2</td><td>CDM: Categoría Diagnóstica Mayor (00–25; 00 = Pre-CDM, el resto por sistema corporal o condición)</td><td>18 · Infecciosas</td></tr>
           <tr><td>3</td><td>Tipo de GRD (quirúrgico / médico)</td><td>4 · Médico</td></tr>
           <tr><td>4–5</td><td>GRD específico dentro de la CDM</td><td>10</td></tr>
           <tr><td>6</td><td>Nivel de severidad: 1 menor, 2 moderada, 3 mayor</td><td>3 · Mayor</td></tr>

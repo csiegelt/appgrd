@@ -7,7 +7,7 @@ const GRD = (() => {
   // Negativos al estilo chileno: -$1.520.000
   const clp = v => {
     if (v == null || isNaN(v)) return '—';
-    const r = Math.round(v);
+    const r = Math.round(v) + 0;   // + 0 convierte -0 en 0
     return r < 0 ? '-' + fmtCLP.format(-r) : fmtCLP.format(r);
   };
   const num = (v, d = 2) => (v == null || isNaN(v)) ? '—' : fmtNum(d).format(v);
