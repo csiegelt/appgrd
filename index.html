@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Análisis GRD · Costos de egreso</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">GRD</span>
+      <div>
+        <h1>Análisis de egresos GRD</h1>
+        <p>Pago por Grupos Relacionados por el Diagnóstico (IR-GRD) · Chile</p>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="dashboard" class="active">Resumen</button>
+      <button data-tab="distribucion">Distribución</button>
+      <button data-tab="egresos">Egresos</button>
+      <button data-tab="simulador">Simulador</button>
+      <button data-tab="catalogo">Catálogo GRD</button>
+      <button data-tab="parametros">Parámetros</button>
+      <button data-tab="guia">Guía GRD</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Filtros compartidos (Resumen y Distribución) -->
+      <div class="filters card" id="filters">
+        <label>CDM <select id="f-cdm"><option value="">Todas</option></select></label>
+        <label>Severidad <select id="f-sev">
+          <option value="">Todas</option><option value="1">1 · Menor</option>
+          <option value="2">2 · Moderada</option><option value="3">3 · Mayor</option>
+        </select></label>
+        <label>Servicio <select id="f-serv"><option value="">Todos</option></select></label>
+        <label>Tipo estancia <select id="f-out">
+          <option value="">Todas</option><option value="inlier">Inlier</option>
+          <option value="sup">Outlier superior</option><option value="inf">Outlier inferior</option>
+        </select></label>
+        <label>Desde <input type="date" id="f-desde"></label>
+        <label>Hasta <input type="date" id="f-hasta"></label>
+        <button class="btn ghost" id="f-clear">Limpiar filtros</button>
+        <span class="hint" id="f-count"></span>
+      </div>
+
+    <!-- ================= RESUMEN ================= -->
+    <section id="tab-dashboard" class="tab active">
+      <div class="kpis" id="kpis"></div>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>Costo vs. pago GRD por episodio</h3>
+          <p class="hint">Cada punto es un egreso. La línea es el pago teórico (precio base × peso). Puntos sobre la línea = pérdida.</p>
+          <div id="chart-scatter" class="chart"></div>
+        </div>
+        <div class="card">
+          <h3>Resultado por CDM</h3>
+          <p class="hint">Suma de (pago − costo) por Categoría Diagnóstica Mayor.</p>
+          <div id="chart-cdm" class="chart"></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h3>Por nivel de severidad</h3>
+          <div id="tbl-sev"></div>
+        </div>
+        <div class="card">
+          <h3>GRD con mayor pérdida acumulada</h3>
+          <div id="tbl-top"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= DISTRIBUCIÓN ================= -->
+    <section id="tab-distribucion" class="tab">
+      <div class="card">
+        <div class="dist-controls">
+          <label>Variable a analizar
+            <select id="d-var">
+              <option value="costoPeso">Costo por unidad de peso GRD</option>
+              <option value="recuperacion">% de recuperación (pago ÷ costo)</option>
+              <option value="resultado">Resultado por egreso (pago − costo)</option>
+              <option value="iest">Índice de estancia (días ÷ EM norma)</option>
+              <option value="costo">Costo total por egreso</option>
+              <option value="costoDia">Costo por día de estada</option>
+              <option value="peso">Peso GRD (complejidad)</option>
+              <option value="dias">Días de estada</option>
+            </select>
+          </label>
+          <label>N° de barras <span class="range-val" id="d-bins-val">20</span>
+            <input type="range" id="d-bins" min="5" max="50" value="20">
+          </label>
+          <label>Agrupar box-plot por
+            <select id="d-group">
+              <option value="cdm">CDM</option>
+              <option value="sev">Severidad</option>
+              <option value="servicio">Servicio</option>
+              <option value="grd">GRD</option>
+              <option value="estancia">Tipo de estancia</option>
+            </select>
+          </label>
+          <div class="checks">
+            <label class="check"><input type="checkbox" id="d-kde" checked> Curva de densidad</label>
+            <label class="check"><input type="checkbox" id="d-bands" checked> Bandas de percentiles</label>
+            <label class="check"><input type="checkbox" id="d-bench-on" checked> Curva de referencia</label>
+          </div>
+        </div>
+        <div class="dist-controls bench">
+          <label>Referencia · media <input type="number" id="d-bmean" step="any"></label>
+          <label>Referencia · desviación estándar <input type="number" id="d-bsd" step="any" min="0"></label>
+          <button class="btn ghost" id="d-bdefault" type="button">Valores sugeridos</button>
+          <label class="eval">Evaluar un valor <span class="range-val" id="d-eval-val">—</span>
+            <input type="range" id="d-eval" step="any">
+          </label>
+        </div>
+        <p class="hint" id="d-bench-hint"></p>
+      </div>
+
+      <div class="kpis" id="d-kpis"></div>
+
+      <div class="card">
+        <div class="row-between">
+          <h3 id="d-title">Curva de distribución</h3>
+          <div class="legend">
+            <span><i class="lg bar"></i>Egresos (histograma)</span>
+            <span><i class="lg kde"></i>Densidad institucional</span>
+            <span><i class="lg bench"></i>Referencia</span>
+            <span><i class="lg inst"></i>Institución</span>
+            <span><i class="lg band"></i>Rango P25–P75 / P10–P90</span>
+          </div>
+        </div>
+        <p class="hint">Mueva el mouse sobre la curva para ver el percentil de cualquier valor. Haga clic en una barra para listar los egresos de ese rango.</p>
+        <div id="chart-dist" class="chart"></div>
+        <div class="range-strip" id="d-strip"></div>
+      </div>
+
+      <div class="card" id="d-bin-card" hidden>
+        <div class="row-between">
+          <h3 id="d-bin-title">Egresos en el rango</h3>
+          <button class="btn ghost sm" id="d-bin-close">Cerrar</button>
+        </div>
+        <div class="table-wrap"><table id="d-bin-tbl"></table></div>
+      </div>
+
+      <div class="card">
+        <h3>Rango por grupo (box-plot)</h3>
+        <p class="hint">Caja = P25–P75, línea = mediana, rombo = media, bigotes = 1,5 × RIC, puntos = valores atípicos. Línea roja = valor institucional; punteada = referencia. Clic en un grupo para filtrarlo.</p>
+        <div id="chart-box" class="chart"></div>
+      </div>
+    </section>
+
+    <!-- ================= EGRESOS ================= -->
+    <section id="tab-egresos" class="tab">
+      <div class="card">
+        <h3>Registrar egreso</h3>
+        <form id="form-egreso" class="form-grid">
+          <input type="hidden" id="e-idx">
+          <label>ID episodio <input id="e-id" required placeholder="EP-0001"></label>
+          <label>Fecha egreso <input type="date" id="e-fecha" required></label>
+          <label>Código IR-GRD <input id="e-grd" required list="grd-list" placeholder="184103"></label>
+          <label>Servicio <input id="e-serv" placeholder="Medicina"></label>
+          <label>Días de estada <input type="number" id="e-dias" min="0" step="1" required></label>
+          <label>Costo total asignado ($) <input type="number" id="e-costo" min="0" step="1" required></label>
+          <label>Peso manual (opcional) <input type="number" id="e-peso" min="0" step="0.0001" placeholder="usa catálogo"></label>
+          <div class="form-actions">
+            <button class="btn" type="submit">Guardar egreso</button>
+            <button class="btn ghost" type="reset" id="e-reset">Limpiar</button>
+          </div>
+        </form>
+        <datalist id="grd-list"></datalist>
+        <div id="e-preview" class="preview"></div>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <h3>Egresos cargados <span id="n-egresos" class="badge"></span></h3>
+          <div class="actions">
+            <label class="btn ghost file">Importar CSV <input type="file" id="imp-egresos" accept=".csv,.txt"></label>
+            <button class="btn ghost" id="exp-egresos">Exportar CSV</button>
+            <button class="btn ghost" id="demo-egresos">Cargar datos de ejemplo</button>
+            <button class="btn danger" id="del-egresos">Borrar todo</button>
+          </div>
+        </div>
+        <p class="hint">Formato CSV (separador <code>;</code> o <code>,</code>): <code>id;fecha_egreso;grd;servicio;dias_estada;costo;peso</code> (peso opcional).</p>
+        <input id="search" class="search" placeholder="Buscar por ID, GRD, descripción o servicio…">
+        <div class="table-wrap"><table id="tbl-egresos"></table></div>
+      </div>
+    </section>
+
+    <!-- ================= SIMULADOR ================= -->
+    <section id="tab-simulador" class="tab">
+      <div class="grid2">
+        <div class="card">
+          <h3>Simulador de un caso</h3>
+          <form id="form-sim" class="form-grid one">
+            <label>Precio base pactado ($) <input type="number" id="s-pb" step="1"></label>
+            <label>GRD (opcional, carga peso y puntos de corte) <input id="s-grd" list="grd-list"></label>
+            <label>Peso del episodio <input type="number" id="s-peso" step="0.0001" value="2.34"></label>
+            <label>Costo total asignado ($) <input type="number" id="s-costo" step="1" value="5500000"></label>
+            <label>Días de estada (opcional) <input type="number" id="s-dias" step="1"></label>
+            <label class="check"><input type="checkbox" id="s-ajustes"> Aplicar ajustes por outlier</label>
+          </form>
+        </div>
+        <div class="card sim-result" id="sim-result"></div>
+      </div>
+      <div class="card">
+        <h3>Sensibilidad: ¿qué precio base o costo equilibra el caso?</h3>
+        <div id="sim-sens"></div>
+      </div>
+    </section>
+
+    <!-- ================= CATÁLOGO ================= -->
+    <section id="tab-catalogo" class="tab">
+      <div class="card">
+        <div class="row-between">
+          <h3>Catálogo IR-GRD <span id="n-cat" class="badge"></span></h3>
+          <div class="actions">
+            <label class="btn ghost file">Importar norma (CSV) <input type="file" id="imp-cat" accept=".csv,.txt"></label>
+            <button class="btn ghost" id="exp-cat">Exportar CSV</button>
+            <button class="btn ghost" id="demo-cat">Restaurar ejemplo</button>
+          </div>
+        </div>
+        <p class="warn">Los pesos y puntos de corte de ejemplo son <b>ilustrativos</b>. Para análisis real importe la Norma IR-GRD vigente publicada por MINSAL/FONASA.</p>
+        <p class="hint">Columnas: <code>codigo;descripcion;peso;em_norma;pci;pcs;p50</code> — PCI/PCS = puntos de corte inferior/superior (días), P50 = mediana de estancia (período de carencia).</p>
+        <form id="form-cat" class="form-grid">
+          <label>Código <input id="c-cod" required maxlength="6"></label>
+          <label>Descripción <input id="c-desc" required></label>
+          <label>Peso relativo <input type="number" id="c-peso" step="0.0001" required></label>
+          <label>EM norma (días) <input type="number" id="c-em" step="0.01" required></label>
+          <label>PCI <input type="number" id="c-pci" step="1" required></label>
+          <label>PCS <input type="number" id="c-pcs" step="1" required></label>
+          <label>P50 <input type="number" id="c-p50" step="1" required></label>
+          <div class="form-actions"><button class="btn" type="submit">Agregar / actualizar</button></div>
+        </form>
+        <input id="search-cat" class="search" placeholder="Buscar GRD…">
+        <div class="table-wrap"><table id="tbl-cat"></table></div>
+      </div>
+    </section>
+
+    <!-- ================= PARÁMETROS ================= -->
+    <section id="tab-parametros" class="tab">
+      <div class="card">
+        <h3>Parámetros de pago</h3>
+        <form id="form-param" class="form-grid">
+          <label>Precio base ($ por unidad de peso) <input type="number" id="p-pb" step="1"></label>
+          <label>Nombre del convenio / establecimiento <input id="p-nombre"></label>
+          <label class="check wide"><input type="checkbox" id="p-ajustes"> Aplicar ajustes por outliers (si no, pago = precio base × peso, como en el ejercicio)</label>
+          <label>Outlier superior: días de carencia
+            <select id="p-carencia">
+              <option value="p50">P50 del GRD (norma)</option>
+              <option value="0">Sin carencia</option>
+            </select>
+          </label>
+          <label>Outlier superior: valor día adicional
+            <select id="p-valordia">
+              <option value="em">(Precio base × peso) ÷ EM norma</option>
+              <option value="fijo">Monto fijo por día</option>
+            </select>
+          </label>
+          <label>Monto fijo por día ($) <input type="number" id="p-diafijo" step="1"></label>
+          <label>Factor valor día adicional <input type="number" id="p-factordia" step="0.01"></label>
+          <label>Outlier inferior: factor sobre pago <input type="number" id="p-factorinf" step="0.01"></label>
+          <div class="form-actions"><button class="btn" type="submit">Guardar parámetros</button></div>
+        </form>
+        <p class="hint">Las reglas de outlier dependen del convenio (Norma Técnica MINSAL, bases de licitación FONASA, contrato con aseguradora). Ajuste estos parámetros según su convenio.</p>
+      </div>
+      <div class="card">
+        <h3>Respaldo</h3>
+        <div class="actions">
+          <button class="btn ghost" id="backup">Descargar respaldo completo (JSON)</button>
+          <label class="btn ghost file">Restaurar respaldo <input type="file" id="restore" accept=".json"></label>
+        </div>
+        <p class="hint">Todos los datos se guardan sólo en este navegador (localStorage). Nada se envía a internet.</p>
+      </div>
+    </section>
+
+    <!-- ================= GUÍA ================= -->
+    <section id="tab-guia" class="tab">
+      <div class="card prose">
+        <h3>¿Qué es el sistema GRD?</h3>
+        <p>Los <b>Grupos Relacionados por el Diagnóstico</b> clasifican a cada egreso hospitalario en un grupo clínicamente similar y con consumo de recursos parecido. En Chile se usa la versión <b>IR-GRD</b> (Internacional Refinado), aplicada por MINSAL en hospitales públicos y usada por <b>FONASA</b> como mecanismo de pago desde 2020 (red pública) y en la compra de servicios a prestadores privados.</p>
+
+        <h4>Fórmula básica de pago</h4>
+        <div class="formula">Pago del egreso = Precio base × Peso relativo del GRD</div>
+        <p>Ejemplo: $3.000.000 × 2,34 = <b>$7.020.000</b>. Si el costo asignado al episodio es $5.500.000, el resultado es <b>+$1.520.000</b>.</p>
+        <ul>
+          <li><b>Precio base:</b> valor monetario de un egreso de peso 1,0. Se define por establecimiento/convenio (FONASA usa precios base diferenciados según complejidad del prestador).</li>
+          <li><b>Peso relativo:</b> costo esperado del GRD respecto del egreso promedio (peso 1,0). Lo fija la Norma IR-GRD del MINSAL.</li>
+        </ul>
+
+        <h4>Estructura del código IR-GRD (6 dígitos)</h4>
+        <table class="mini">
+          <tr><th>Dígitos</th><th>Significado</th><th>Ejemplo 184103</th></tr>
+          <tr><td>1–2</td><td>CDM: Categoría Diagnóstica Mayor (01–23, sistema corporal)</td><td>18 · Infecciosas</td></tr>
+          <tr><td>3</td><td>Tipo de GRD (quirúrgico / médico)</td><td>4 · Médico</td></tr>
+          <tr><td>4–5</td><td>GRD específico dentro de la CDM</td><td>10</td></tr>
+          <tr><td>6</td><td>Nivel de severidad: 1 menor, 2 moderada, 3 mayor</td><td>3 · Mayor</td></tr>
+        </table>
+
+        <h4>Estancia y outliers</h4>
+        <ul>
+          <li><b>Inlier:</b> estancia entre el punto de corte inferior (PCI) y superior (PCS) del GRD. Recibe el pago base.</li>
+          <li><b>Outlier superior:</b> estancia mayor al PCS. Según la norma, puede recibir pago adicional por día, descontando un período de carencia (típicamente el P50 del GRD).</li>
+          <li><b>Outlier inferior:</b> estancia menor al PCI; algunos convenios reducen el pago.</li>
+        </ul>
+
+        <h4>Indicadores que calcula esta app</h4>
+        <ul>
+          <li><b>Índice casuístico (IC / case-mix):</b> peso medio de los egresos. Mayor a 1 = casuística más compleja que el promedio.</li>
+          <li><b>Estancia media (EM)</b> observada vs. <b>EM esperada</b> (norma, ajustada por la casuística).</li>
+          <li><b>IEMA</b> (Índice de Estancia Media Ajustada) = EM observada ÷ EM esperada. &lt;1 eficiente, &gt;1 estancias más largas que la norma.</li>
+          <li><b>Resultado</b> = pago GRD − costo; <b>% recuperación</b> = pago ÷ costo.</li>
+          <li><b>Costo por unidad de peso</b> = costo total ÷ suma de pesos. Si supera el precio base, el establecimiento pierde en promedio.</li>
+        </ul>
+
+        <h4>Cómo leer la pestaña Distribución</h4>
+        <ul>
+          <li><b>Histograma + curva de densidad:</b> cómo se reparten los egresos según la variable elegida (costo por unidad de peso, % de recuperación, índice de estancia, etc.).</li>
+          <li><b>Bandas P25–P75 y P10–P90:</b> dónde se concentra el 50 % y el 80 % central de los egresos de la institución.</li>
+          <li><b>Curva de referencia (azul punteada):</b> distribución normal con la media y la desviación estándar de su benchmark (red asistencial, hospitales de igual complejidad, meta interna). Es editable.</li>
+          <li><b>Línea roja "Institución":</b> valor agregado del establecimiento (p. ej. costo total ÷ suma de pesos). La franja de colores indica si cae en el rango Muy bajo / Bajo / Medio / Alto / Muy alto respecto de la referencia.</li>
+          <li><b>Interacción:</b> al pasar el mouse se muestra el percentil de cualquier valor; el control "Evaluar un valor" marca un valor puntual; un clic en una barra lista sus egresos; un clic en un box-plot filtra ese grupo.</li>
+        </ul>
+
+        <h4>Fuentes para datos reales</h4>
+        <ul>
+          <li>Norma IR-GRD vigente (pesos, EM, puntos de corte) — MINSAL / Departamento GRD.</li>
+          <li>Resoluciones de precio base y norma técnica del mecanismo de pago — FONASA / MINSAL (p. ej. Res. Exenta 174 de 2025).</li>
+          <li>Costos por episodio: sistema de costeo del establecimiento (WinSIG/costeo por centro de responsabilidad, contabilidad analítica).</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/grd.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

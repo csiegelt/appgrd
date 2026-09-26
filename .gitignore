@@ -1,0 +1,12 @@
+# Sistema / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Respaldos y datos reales de pacientes (no subir)
+respaldo_grd_*.json
+egresos_grd.csv
+datos/

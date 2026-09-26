@@ -1,0 +1,4 @@
+id;fecha_egreso;grd;servicio;dias_estada;costo;peso
+EP-1001;15-03-2026;184103;UPC;12;5.500.000;
+EP-1002;16-03-2026;141301;Obstetricia;3;1.450.000;
+EP-1003;17-03-2026;999999;Medicina;5;2.100.000;1,25
