@@ -94,3 +94,27 @@ function generarEgresosEjemplo(n = 80) {
   }
   return out;
 }
+
+// Bases de licitación de camas críticas GRD 2018 (caso histórico), punto 9.7 "Regla de pago en caso de ajustes por tecnología":
+// valores que FONASA paga en forma adicional al valor GRD, una sola vez por egreso, cuando por criterio clínico se realiza la prestación.
+const AJUSTES_TECNOLOGIA_2018 = [
+  { grupo: 'Prótesis aórtica', opciones: [['Prótesis aórtica (quirúrgica o endovascular)', 12308767]] },
+  { grupo: 'Plasmaféresis terapéutica', opciones: [['1 a 3 sesiones', 830467], ['4 a 6 sesiones', 1411788], ['7 o más sesiones', 2313710]] },
+  { grupo: 'Sustitución renal continua (hemodiálisis, hemofiltración, hemodiafiltración)',
+    opciones: [['6 a 9 horas', 513043], ['10 a 18 horas', 769566], ['19 a 32 horas', 1026089], ['33 a 48 horas', 1282612], ['49 a 60 horas (máximo)', 1539135]] },
+  { grupo: 'Dispositivos cardíacos',
+    opciones: [['Desfibrilador VVI', 11880110], ['Desfibrilador DDD', 13949370],
+               ['Desfibrilador VVI con resincronización cardíaca', 17545630], ['Desfibrilador DDD con resincronización cardíaca', 17863950]] },
+  { grupo: 'Coils cerebrales',
+    opciones: [['Uno o más coils (HSA por ruptura de aneurisma, aneurisma sin ruptura o malformación arteriovenosa cerebral)', 3284400]] }
+];
+
+// Suma los ajustes elegidos: sel = arreglo con el índice de opción por grupo (-1 o null = ninguno).
+function ajustesTecnologia(sel) {
+  const items = [];
+  (sel || []).forEach((idx, g) => {
+    const grp = AJUSTES_TECNOLOGIA_2018[g];
+    if (grp && idx != null && idx >= 0 && grp.opciones[idx]) items.push({ grupo: grp.grupo, nombre: grp.opciones[idx][0], valor: grp.opciones[idx][1] });
+  });
+  return { items, total: items.reduce((a, i) => a + i.valor, 0) };
+}

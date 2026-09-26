@@ -50,6 +50,7 @@ const Charts = (() => {
     return ticks;
   }
   function short(v) {
+    if (v === 0) return '0';
     const a = Math.abs(v);
     if (a >= 1e6) return GRD.num(v / 1e6, a >= 1e7 ? 0 : 1) + 'M';
     if (a >= 1e3) return GRD.num(v / 1e3, 0) + 'k';
@@ -161,8 +162,10 @@ const Charts = (() => {
       text(row, m.l - 8, yy + rowH / 2 + 4, lbl, { 'text-anchor': 'end', 'font-size': 11, fill: '#333' });
       const x0 = x(Math.min(0, it.value)), w = Math.abs(x(it.value) - x(0));
       const bar = el('rect', { x: x0, y: yy + 4, width: Math.max(w, 1), height: rowH - 8, rx: 3, fill: it.value < 0 ? C.neg : C.pos, opacity: .8 }, row);
-      text(row, it.value < 0 ? x0 - 4 : x0 + w + 4, yy + rowH / 2 + 4, short(it.value),
-        { 'text-anchor': it.value < 0 ? 'end' : 'start', 'font-size': 11, fill: '#555' });
+      // Etiqueta del valor: fuera de la barra, o dentro si no cabe fuera (barras negativas largas)
+      const dentro = it.value < 0 ? x0 - 4 < m.l + 30 : x0 + w + 40 > W;
+      text(row, dentro ? (it.value < 0 ? x0 + 4 : x0 + w - 4) : (it.value < 0 ? x0 - 4 : x0 + w + 4), yy + rowH / 2 + 4, short(it.value),
+        { 'text-anchor': (it.value < 0) !== dentro ? 'end' : 'start', 'font-size': 11, fill: dentro ? '#fff' : '#555', 'font-weight': dentro ? 700 : 400 });
       row.addEventListener('mousemove', ev => { bar.setAttribute('opacity', 1); showTip(it.tip, ev); });
       row.addEventListener('mouseleave', () => { bar.setAttribute('opacity', .8); hideTip(); });
       if (onClick) row.addEventListener('click', () => { hideTip(); onClick(it.key); });
@@ -185,6 +188,7 @@ const Charts = (() => {
     // dominio
     const ext = [st.min, st.max];
     if (o.refLine) ext.push(o.refLine.value);
+    (o.extraLines || []).forEach(l => ext.push(l.value));
     if (o.inst) ext.push(o.inst.value);
     if (o.evalValue != null) ext.push(o.evalValue);
     if (o.bench && o.bench.sd > 0) ext.push(o.bench.mean - 2.5 * o.bench.sd, o.bench.mean + 2.5 * o.bench.sd);
@@ -238,7 +242,8 @@ const Charts = (() => {
     // líneas verticales con etiquetas escalonadas
     const marks = [];
     if (o.refLine) marks.push({ v: o.refLine.value, label: o.refLine.label, color: '#333', dash: '2 3', w: 1.5 });
-    marks.push({ v: st.p50, label: 'Mediana ' + fs(st.p50), color: C.dark, dash: '', w: 1.5 });
+    (o.extraLines || []).forEach(l => marks.push({ v: l.value, label: l.label, color: l.color || '#333', dash: l.dash ?? '2 3', w: 1.5 }));
+    if (!o.hideMedian) marks.push({ v: st.p50, label: 'Mediana ' + fs(st.p50), color: C.dark, dash: '', w: 1.5 });
     if (o.inst) marks.push({ v: o.inst.value, label: o.inst.label + ' ' + fs(o.inst.value), color: C.red, dash: '', w: 3 });
     if (o.evalValue != null) marks.push({ v: o.evalValue, label: 'Evaluado ' + fs(o.evalValue), color: '#e0a800', dash: '', w: 2.5 });
     marks.sort((a, b) => a.v - b.v);
@@ -338,5 +343,163 @@ const Charts = (() => {
     });
   }
 
-  return { scatter, hbars, distribution, boxplots, stats, ecdf, normCdf };
+  // ---------- 5. Líneas con zona de ganancia / pérdida ----------
+  /**
+   * o = { xs, series:[{name, ys, color, width, dash, hidden}], fill:[iA,iB] (verde si A ≥ B, rojo si no),
+   *       vlines:[{x,label,color,dash}], markers:[{x,y,label,color}], yZero, xLabel, yLabel, fmtX, fmtY, hover(i) }
+   */
+  function lineas(container, o) {
+    const xs = o.xs;
+    if (!xs || xs.length < 2) return empty(container);
+    const W = 780, H = (o.height || 340) + 22, m = { l: 64, r: 20, t: 62, b: 46 };
+    const s = svg(container, W, H);
+    let ymin = Infinity, ymax = -Infinity;
+    const acc = v => { if (isFinite(v)) { ymin = Math.min(ymin, v); ymax = Math.max(ymax, v); } };
+    o.series.forEach(se => se.ys.forEach(acc));
+    (o.markers || []).forEach(mk => acc(mk.y));
+    if (o.yZero) acc(0);
+    const pad = (ymax - ymin) * 0.08 || Math.abs(ymax) * 0.1 || 1;
+    ymin = (o.yZero && ymin === 0) ? 0 : ymin - pad; ymax += pad;
+    const x0 = xs[0], x1 = xs[xs.length - 1];
+    const x = scale(x0, x1, m.l, W - m.r), y = scale(ymin, ymax, H - m.b, m.t);
+    const fX = o.fmtX || short, fY = o.fmtY || short;
+
+    gridY(s, niceTicks(ymin, ymax, 5), y, m.l, W - m.r, fY);
+    axisX(s, niceTicks(x0, x1, 8), x, H - m.b, fX);
+    if (o.xLabel) text(s, (m.l + W - m.r) / 2, H - 8, o.xLabel, { 'text-anchor': 'middle', fill: '#6b6b70', 'font-size': 11 });
+    if (o.yLabel) text(s, 8, m.t - 8, o.yLabel, { fill: '#6b6b70', 'font-size': 11 });
+
+    // zonas entre dos series (ganancia / pérdida), cortadas exactamente en el cruce
+    if (o.fill) {
+      const A = o.series[o.fill[0]].ys, B = o.series[o.fill[1]].ys;
+      const runs = [];
+      let run = null;
+      const add = (xv, a, b, sign) => {
+        if (!run || run.sign !== sign) { if (run) runs.push(run); run = { sign, top: [], bot: [] }; }
+        run.top.push([xv, a]); run.bot.push([xv, b]);
+      };
+      for (let i = 0; i < xs.length; i++) {
+        const d = A[i] - B[i], sign = d >= 0 ? 1 : -1;
+        if (i > 0 && run && run.sign !== sign) {
+          const dp = A[i - 1] - B[i - 1], t = dp / (dp - d);
+          const xc = xs[i - 1] + t * (xs[i] - xs[i - 1]), yc = A[i - 1] + t * (A[i] - A[i - 1]);
+          add(xc, yc, yc, run.sign);
+          runs.push(run); run = { sign, top: [[xc, yc]], bot: [[xc, yc]] };
+        }
+        add(xs[i], A[i], B[i], sign);
+      }
+      if (run) runs.push(run);
+      runs.forEach(r => {
+        const pts = [...r.top, ...r.bot.reverse()];
+        el('path', { d: 'M' + pts.map(p => x(p[0]).toFixed(1) + ',' + y(p[1]).toFixed(1)).join('L') + 'Z', fill: r.sign > 0 ? C.pos : C.neg, opacity: .14 }, s);
+      });
+    }
+    if (o.yZero && ymin < 0) el('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), stroke: '#777', 'stroke-width': 1.2 }, s);
+
+    // líneas verticales de referencia con etiquetas escalonadas
+    const vl = (o.vlines || []).filter(v => v.x >= x0 && v.x <= x1).sort((a, b) => a.x - b.x);
+    let lastX = -1e9, level = 0;
+    vl.forEach(v => {
+      const xv = x(v.x);
+      level = xv - lastX < 90 ? (level + 1) % 3 : 0;
+      lastX = xv;
+      el('line', { x1: xv, x2: xv, y1: m.t - 6 + level * 12, y2: H - m.b, stroke: v.color || '#555', 'stroke-width': v.width || 1.3, 'stroke-dasharray': v.dash ?? '4 3' }, s);
+      const anchor = xv > W - m.r - 70 ? 'end' : xv < m.l + 70 ? 'start' : 'middle';
+      text(s, xv, m.t - 10 + level * 12, v.label, { 'text-anchor': anchor, 'font-size': 10.5, 'font-weight': 600, fill: v.color || '#555', 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': 3 });
+    });
+
+    // series
+    o.series.forEach(se => {
+      if (se.hidden) return;
+      const d = se.ys.map((v, i) => (i ? 'L' : 'M') + x(xs[i]).toFixed(1) + ',' + y(v).toFixed(1)).join('');
+      el('path', { d, fill: 'none', stroke: se.color, 'stroke-width': se.width || 2.5, 'stroke-dasharray': se.dash || '', 'stroke-linejoin': 'round' }, s);
+    });
+
+    // marcadores
+    (o.markers || []).forEach(mk => {
+      if (mk.x < x0 || mk.x > x1) return;
+      el('circle', { cx: x(mk.x), cy: y(mk.y), r: 6, fill: mk.color || C.red, stroke: '#fff', 'stroke-width': 2 }, s);
+      if (mk.label) text(s, x(mk.x) + (x(mk.x) > W - 160 ? -10 : 10), y(mk.y) - 8, mk.label,
+        { 'text-anchor': x(mk.x) > W - 160 ? 'end' : 'start', 'font-size': 11, 'font-weight': 700, fill: mk.color || C.red, 'paint-order': 'stroke', stroke: '#fff', 'stroke-width': 3 });
+    });
+
+    // leyenda (fila superior, sobre las etiquetas de las líneas verticales)
+    let lx = m.l + 6;
+    o.series.filter(se => !se.hidden && se.name).forEach(se => {
+      el('line', { x1: lx, x2: lx + 18, y1: 10, y2: 10, stroke: se.color, 'stroke-width': 3, 'stroke-dasharray': se.dash || '' }, s);
+      text(s, lx + 22, 14, se.name, { 'font-size': 11, fill: '#333' });
+      lx += 30 + se.name.length * 6.2;
+    });
+
+    // interacción
+    if (o.hover) {
+      const cross = el('line', { y1: m.t, y2: H - m.b, stroke: '#222', opacity: 0, 'pointer-events': 'none' }, s);
+      const dots = o.series.filter(se => !se.hidden).map(se => el('circle', { r: 4, fill: se.color, opacity: 0, 'pointer-events': 'none' }, s));
+      const ov = el('rect', { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: 'transparent', style: 'cursor:crosshair' }, s);
+      ov.addEventListener('mousemove', ev => {
+        const pt = s.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+        const px = pt.matrixTransform(s.getScreenCTM().inverse()).x;
+        const xv = x0 + (px - m.l) / (W - m.l - m.r) * (x1 - x0);
+        let i = 0, best = Infinity;
+        xs.forEach((v, k) => { const dd = Math.abs(v - xv); if (dd < best) { best = dd; i = k; } });
+        cross.setAttribute('x1', x(xs[i])); cross.setAttribute('x2', x(xs[i])); cross.setAttribute('opacity', .45);
+        o.series.filter(se => !se.hidden).forEach((se, k) => { dots[k].setAttribute('cx', x(xs[i])); dots[k].setAttribute('cy', y(se.ys[i])); dots[k].setAttribute('opacity', 1); });
+        showTip(o.hover(i), ev);
+      });
+      ov.addEventListener('mouseleave', () => { cross.setAttribute('opacity', 0); dots.forEach(d => d.setAttribute('opacity', 0)); hideTip(); });
+    }
+  }
+
+  // ---------- 6. Pago vs costo (barras apiladas) ----------
+  // o = { pago:[{name,value}], costo:[{name,value}], fmt }
+  function comparacion(container, o) {
+    const tot = arr => arr.reduce((a, p) => a + p.value, 0);
+    const tp = tot(o.pago), tc = tot(o.costo);
+    if (!(tp > 0 || tc > 0)) return empty(container);
+    const W = 780, H = 330, m = { l: 64, r: 250, t: 20, b: 40 };
+    const s = svg(container, W, H);
+    const fmt = o.fmt || short;
+    const ymax = Math.max(tp, tc) * 1.12;
+    const y = scale(0, ymax, H - m.b, m.t);
+    gridY(s, niceTicks(0, ymax, 5), y, m.l, W - m.r, short);
+    const bw = 110, xs = [m.l + 50, m.l + 50 + bw + 70];
+    const PAL_P = ['#1f7a4a', '#63a97f'];
+    const PAL_C = ['#8a0d1e', '#b3263a', '#d0505f', '#e07b86', '#eba4ab', '#c9a3a9', '#f4c9cd', '#9a6b72'];
+    const barra = (parts, xi, pal, titulo, total) => {
+      let acc = 0;
+      parts.forEach((p, k) => {
+        if (!(p.value > 0)) return;
+        const r = el('rect', { x: xi, y: y(acc + p.value), width: bw, height: y(acc) - y(acc + p.value), fill: pal[k % pal.length], stroke: '#fff', 'stroke-width': 1 }, s);
+        r.addEventListener('mousemove', ev => showTip(`<b>${p.name}</b><br>${GRD.clp(p.value)}<br>${GRD.num(p.value / total * 100, 1)} % de ${titulo.toLowerCase()}`, ev));
+        r.addEventListener('mouseleave', hideTip);
+        acc += p.value;
+      });
+      text(s, xi + bw / 2, H - m.b + 18, titulo, { 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700, fill: '#333' });
+      text(s, xi + bw / 2, y(total) - 6, GRD.clp(total), { 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700, fill: '#333' });
+    };
+    barra(o.pago, xs[0], PAL_P, 'Pago GRD', tp);
+    barra(o.costo, xs[1], PAL_C, 'Costo', tc);
+    el('line', { x1: m.l, x2: W - m.r, y1: y(0), y2: y(0), stroke: '#777' }, s);
+
+    // diferencia
+    const dif = tp - tc, xb = xs[1] + bw + 16;
+    const col = dif >= 0 ? C.pos : C.neg;
+    el('line', { x1: xs[0] + bw, x2: xb, y1: y(tp), y2: y(tp), stroke: col, 'stroke-dasharray': '4 3' }, s);
+    el('path', { d: `M${xb},${y(tp)} L${xb + 8},${y(tp)} L${xb + 8},${y(tc)} L${xb},${y(tc)}`, fill: 'none', stroke: col, 'stroke-width': 2 }, s);
+    text(s, xb + 14, (y(tp) + y(tc)) / 2 + 4, (dif >= 0 ? 'Ganancia ' : 'Pérdida ') + GRD.clp(Math.abs(dif)),
+      { 'font-size': 13, 'font-weight': 800, fill: col });
+
+    // leyenda del costo
+    const lx = W - m.r + 70;
+    let ly = m.t + 10;
+    text(s, lx, ly, 'Composición del costo', { 'font-size': 11, 'font-weight': 700, fill: '#333' });
+    o.costo.filter(p => p.value > 0).forEach((p, k) => {
+      ly += 18;
+      el('rect', { x: lx, y: ly - 9, width: 11, height: 11, rx: 2, fill: PAL_C[k % PAL_C.length] }, s);
+      const nm = p.name.length > 22 ? p.name.slice(0, 21) + '…' : p.name;
+      text(s, lx + 16, ly, `${nm} · ${GRD.num(p.value / tc * 100, 0)}%`, { 'font-size': 10.5, fill: '#444' });
+    });
+  }
+
+  return { scatter, hbars, distribution, boxplots, lineas, comparacion, stats, ecdf, normCdf };
 })();

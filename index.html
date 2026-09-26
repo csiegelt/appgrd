@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Análisis GRD · Costos de egreso</title>
+  <title>Análisis GRD · Magíster Sistema de Salud UANDES</title>
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -11,8 +11,8 @@
     <div class="brand">
       <span class="logo">GRD</span>
       <div>
-        <h1>Análisis de egresos GRD</h1>
-        <p>Pago por Grupos Relacionados por el Diagnóstico (IR-GRD) · Chile</p>
+        <h1>Análisis de egresos GRD <span class="h1-tag">Para alumnos del Magíster · Sistema de Salud · UANDES</span></h1>
+        <p>Pago por Grupos Relacionados por el Diagnóstico (IR-GRD) · Chile · Herramienta docente — Universidad de los Andes</p>
       </div>
     </div>
     <nav class="tabs" id="tabs">
@@ -20,6 +20,8 @@
       <button data-tab="distribucion">Distribución</button>
       <button data-tab="egresos">Egresos</button>
       <button data-tab="simulador">Simulador</button>
+      <button data-tab="licitacion">Licitación GRD</button>
+      <button data-tab="alumno">Modo alumno</button>
       <button data-tab="catalogo">Catálogo GRD</button>
       <button data-tab="parametros">Parámetros</button>
       <button data-tab="guia">Guía GRD</button>
@@ -211,6 +213,225 @@
       </div>
     </section>
 
+    <!-- ================= MODO ALUMNO ================= -->
+    <section id="tab-alumno" class="tab">
+      <div class="subtabs" id="a-subtabs">
+        <button type="button" data-modo="caso" class="active">1 · Analizar un caso clínico</button>
+        <button type="button" data-modo="practica">2 · Practicar cálculos</button>
+      </div>
+
+      <!-- ---------- 1. ANÁLISIS DE CASO ---------- -->
+      <div id="a-modo-caso">
+        <div class="card no-print">
+          <div class="row-between">
+            <h3>Datos del caso</h3>
+            <label class="inline-label">Cargar un caso de ejemplo
+              <select id="k-ejemplo"><option value="">— Elegir —</option></select>
+            </label>
+          </div>
+          <p class="hint">Ingrese los datos del paciente tal como llegan de la clínica. El análisis se actualiza solo mientras escribe. Montos como <code>3.000.000</code> y decimales con coma (<code>2,34</code>).</p>
+          <div class="form-grid">
+            <label>Nombre del caso <input id="k-nombre" placeholder="Ej. Paciente 1 · Clínica San José"></label>
+            <label>Código IR-GRD <input id="k-grd" list="grd-list" maxlength="6" placeholder="Ej. 184103" autocomplete="off"></label>
+            <label class="span2">Diagnóstico / descripción del GRD <input id="k-desc" placeholder="Se completa si el GRD está en el catálogo"></label>
+          </div>
+          <label class="block">Relato del caso (opcional)
+            <textarea id="k-relato" rows="2" placeholder="Ej. Paciente de 78 años ingresa por urgencia con septicemia; 12 días hospitalizado, sin cirugía."></textarea>
+          </label>
+
+          <h4 class="sub">1 · Datos GRD y estadía</h4>
+          <div class="form-grid">
+            <label>Precio base pactado ($) <input id="k-pb" inputmode="decimal" autocomplete="off"></label>
+            <label>Peso del GRD <input id="k-peso" inputmode="decimal" autocomplete="off"></label>
+            <label>Días de estada <input id="k-dias" inputmode="numeric" autocomplete="off"></label>
+            <label>EM norma (días) <input id="k-em" inputmode="decimal" autocomplete="off"></label>
+            <label>PCI · punto de corte inferior <input id="k-pci" inputmode="numeric" autocomplete="off"></label>
+            <label>PCS · punto de corte superior <input id="k-pcs" inputmode="numeric" autocomplete="off"></label>
+            <label>P50 · carencia (días) <input id="k-p50" inputmode="numeric" autocomplete="off"></label>
+          </div>
+          <label class="check"><input type="checkbox" id="k-pbtramo"> Usar el precio base del tramo de peso según las bases de la pestaña <b>Licitación GRD</b> (su oferta o, si no hay, el tope)</label>
+          <label class="check"><input type="checkbox" id="k-outlier"> Aplicar pago adicional por outlier superior: (días − PCS − P50) × pago base ÷ EM</label>
+
+          <h4 class="sub">2 · Costos del episodio</h4>
+          <p class="hint">Ingrese el desglose (recomendado, permite ver qué explica el costo) <b>o</b> sólo el costo total.</p>
+          <div class="form-grid">
+            <label>Día cama ($ por día) <input id="k-c-diacama" inputmode="decimal" autocomplete="off"></label>
+            <label>Pabellón <input id="k-c-pabellon" inputmode="decimal" autocomplete="off"></label>
+            <label>Medicamentos <input id="k-c-medicamentos" inputmode="decimal" autocomplete="off"></label>
+            <label>Insumos y prótesis <input id="k-c-insumos" inputmode="decimal" autocomplete="off"></label>
+            <label>Exámenes e imágenes <input id="k-c-examenes" inputmode="decimal" autocomplete="off"></label>
+            <label>Honorarios médicos <input id="k-c-honorarios" inputmode="decimal" autocomplete="off"></label>
+            <label>Otros <input id="k-c-otros" inputmode="decimal" autocomplete="off"></label>
+            <label>… o costo total directo <input id="k-costo-total" inputmode="decimal" autocomplete="off" placeholder="si no tiene desglose"></label>
+          </div>
+
+          <h4 class="sub">3 · Ajustes por tecnología (opcional · bases 2018, punto 9.7)</h4>
+          <p class="hint">Prestaciones de alto costo que FONASA paga <b>además</b> del valor GRD, una sola vez por egreso, cuando se realizan por criterio clínico. Valores de las bases de camas críticas 2018 (caso histórico).</p>
+          <div class="form-grid" id="k-tec"></div>
+          <div class="actions k-actions">
+            <button class="btn ghost" id="k-practicar" type="button">Practicar los cálculos de este caso</button>
+            <button class="btn ghost" id="k-imprimir" type="button">Imprimir informe</button>
+            <button class="btn danger" id="k-limpiar" type="button">Limpiar datos</button>
+          </div>
+        </div>
+        <div id="k-resultado"></div>
+      </div>
+
+      <!-- ---------- 2. PRÁCTICA ---------- -->
+      <div id="a-modo-practica" hidden>
+      <div class="card">
+        <div class="alumno-bar">
+          <label>Nombre del alumno <input id="a-nombre" placeholder="Nombre y apellido" autocomplete="name"></label>
+          <label>Nivel
+            <select id="a-nivel">
+              <option value="1">Nivel 1 · Pago y resultado</option>
+              <option value="2">Nivel 2 · Indicadores del episodio</option>
+              <option value="3">Nivel 3 · Estancia y outliers</option>
+              <option value="4">Nivel 4 · Casuística de varios egresos</option>
+            </select>
+          </label>
+          <button class="btn" id="a-nuevo" type="button">Nuevo ejercicio aleatorio</button>
+          <button class="btn ghost" id="a-propio" type="button">Ingresar mis propios datos</button>
+          <label>Código de ejercicio
+            <span class="inline"><input id="a-codigo" placeholder="N1-12345" size="10"><button class="btn ghost" id="a-cargar" type="button">Cargar</button></span>
+          </label>
+        </div>
+        <p class="hint" id="a-nivel-desc"></p>
+        <div class="kpis compact" id="a-score"></div>
+      </div>
+
+      <div class="card" id="a-propio-card" hidden>
+        <div class="row-between">
+          <h3>Ingresar datos del caso</h3>
+          <button class="btn ghost sm" id="a-propio-cerrar" type="button">Cancelar</button>
+        </div>
+        <p class="hint">Escriba los montos como en Chile (ej. <code>3.000.000</code>) y los decimales con coma (ej. <code>2,34</code>).</p>
+        <div id="a-propio-form"></div>
+        <p class="neg" id="a-propio-error"></p>
+        <button class="btn" id="a-propio-crear" type="button">Crear ejercicio con estos datos</button>
+      </div>
+
+      <div id="a-vacio" class="card empty-state">
+        <p>Elija un nivel y presione <b>Nuevo ejercicio aleatorio</b>, cargue un <b>código</b> entregado por el docente o <b>ingrese sus propios datos</b>.</p>
+      </div>
+
+      <div class="grid2" id="a-trabajo" hidden>
+        <div class="card" id="a-enunciado"></div>
+        <div class="card">
+          <h3>Sus respuestas</h3>
+          <p class="hint">Calcule cada valor y escríbalo. Montos en pesos sin decimales (ej. <code>7.020.000</code>); use el signo menos si hay pérdida.</p>
+          <div id="a-preguntas"></div>
+          <div class="actions a-actions">
+            <button class="btn" id="a-revisar" type="button">Revisar respuestas</button>
+            <button class="btn ghost" id="a-ver" type="button">Ver solución paso a paso</button>
+            <button class="btn ghost" id="a-limpiar" type="button">Borrar respuestas</button>
+          </div>
+          <div id="a-feedback"></div>
+        </div>
+      </div>
+
+      <div class="card" id="a-solucion" hidden></div>
+
+      <div class="card">
+        <div class="row-between">
+          <h3>Historial de ejercicios <span class="badge" id="a-nhist"></span></h3>
+          <div class="actions">
+            <button class="btn ghost" id="a-exp" type="button">Exportar resultados (CSV)</button>
+            <button class="btn danger" id="a-borrar-hist" type="button">Borrar historial</button>
+          </div>
+        </div>
+        <p class="hint">Se registra cada ejercicio revisado. Nota en escala 1,0–7,0 con 60 % de exigencia. El docente puede pedir el CSV exportado.</p>
+        <div class="table-wrap"><table id="a-hist"></table></div>
+      </div>
+      </div>
+    </section>
+
+    <!-- ================= LICITACIÓN ================= -->
+    <section id="tab-licitacion" class="tab">
+      <div class="card">
+        <div class="row-between">
+          <h3>Casos de ejemplo de licitación</h3>
+          <label class="inline-label">Cargar caso
+            <select id="l-ejemplo"><option value="">— Elegir un caso —</option></select>
+          </label>
+        </div>
+        <div id="l-relato"><p class="hint">Elija un caso de ejemplo para cargar bases, oferta y casuística de una clínica ficticia, con preguntas guía para el alumno. También puede ingresar sus propios datos más abajo.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="row-between">
+          <h3>1 · Bases de la licitación</h3>
+          <label class="inline-label">Cargar bases
+            <select id="l-preset">
+              <option value="camas2018">Camas críticas GRD 2018 (caso histórico)</option>
+              <option value="privados2023">Compra a prestadores privados 2023</option>
+              <option value="privados2024">Compra a prestadores privados 2024</option>
+              <option value="personalizada">Personalizada</option>
+            </select>
+          </label>
+        </div>
+        <p class="warn" id="l-nota"></p>
+        <p class="hint">Cada oferente debe ofertar un <b>precio base por tramo de peso relativo</b>. El valor GRD de cada egreso = precio base del tramo al que pertenece su peso × peso relativo. Una oferta fuera del rango de cualquier tramo se declara <b>inadmisible</b>. Puede editar límites y topes.</p>
+        <div class="form-grid">
+          <label>Límite tramo 1 (peso ≤) <input id="l-l1" inputmode="decimal"></label>
+          <label>Límite tramo 2 (peso ≤) <input id="l-l2" inputmode="decimal"></label>
+          <label>Ponderación oferta económica (%) <input id="l-pond" inputmode="decimal"></label>
+        </div>
+        <div class="table-wrap" style="margin-top:12px"><table id="l-tbl-bases"></table></div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>Simular un egreso con estas bases</h3>
+          <p class="hint">Ingrese el peso y el costo de un egreso: se identifica su tramo, el precio base que corresponde (su oferta o, si no hay, el tope) y el resultado.</p>
+          <div class="form-grid">
+            <label>Peso relativo del egreso <input id="l-s-peso" inputmode="decimal" placeholder="ej. 2,34" autocomplete="off"></label>
+            <label>Costo del egreso ($) <input id="l-s-costo" inputmode="decimal" placeholder="ej. 5.500.000" autocomplete="off"></label>
+            <label class="span2">Ajuste por tecnología <select id="l-s-tec"></select></label>
+          </div>
+          <div id="l-s-res" class="l-sim"></div>
+        </div>
+        <div class="card">
+          <h3>Ajustes por tecnología · bases 2018, punto 9.7</h3>
+          <p class="hint">Cuando el prestador determina, con criterios estrictamente clínicos, que es necesario realizar alguna de estas prestaciones, FONASA las paga <b>en forma adicional al valor del GRD</b>.</p>
+          <div class="table-wrap" style="max-height:none"><table id="l-tbl-tec"></table></div>
+          <p class="hint">Los precios se pagan una sola vez por cada egreso. Los ajustes por tecnología se rigen por los protocolos vigentes del Ministerio de Salud. Caso histórico: no corresponde a condiciones vigentes.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>2 · Casuística y costos esperados</h3>
+        <div class="form-grid">
+          <label>Fuente de la casuística
+            <select id="l-fuente">
+              <option value="egresos">Egresos cargados en la aplicación</option>
+              <option value="manual">Ingreso manual por tramo</option>
+            </select>
+          </label>
+          <label>Margen objetivo sobre el costo (%) <input id="l-margen" inputmode="decimal"></label>
+          <label>PB promedio más bajo esperado de la competencia ($) <input id="l-comp" inputmode="decimal" placeholder="opcional, para estimar puntaje"></label>
+        </div>
+        <p class="hint" id="l-fuente-hint"></p>
+        <div class="table-wrap" style="margin-top:10px"><table id="l-tbl-casu"></table></div>
+      </div>
+
+      <div id="l-resultado"></div>
+
+      <div class="card prose">
+        <h3>Cómo analizar una licitación GRD (guía para el alumno)</h3>
+        <ol class="pasos">
+          <li><h4>Leer las bases</h4>Identifique los tramos de peso relativo (en 2018: ≤ 1,5; &gt; 1,5 y ≤ 2,5; &gt; 2,5), el rango permitido de precio base en cada tramo, la ponderación de la oferta económica (50 % en las bases de 2018), las reglas de outlier y las causales de inadmisibilidad (precio fuera de rango).</li>
+          <li><h4>Estimar la casuística esperada</h4>¿Qué pacientes llegarán? Use el histórico propio codificado en IR-GRD (idealmente 2–3 años) o los GRD que más deriva FONASA. Clasifique cada egreso en su tramo según su peso.</li>
+          <li><h4>Calcular el precio base de equilibrio por tramo</h4><div class="calc">Precio base de equilibrio = costo total del tramo ÷ suma de pesos del tramo</div>Es el "costo por unidad de peso": el precio base con el que no se gana ni se pierde.</li>
+          <li><h4>Comparar con los topes</h4>Si el precio de equilibrio supera el tope del tramo, ese tramo pierde aunque se oferte el máximo permitido: hay que mejorar costos o evaluar si conviene participar.</li>
+          <li><h4>Definir la oferta</h4>Oferte entre el equilibrio (más un margen) y el tope. Un precio más bajo mejora el puntaje económico, pero reduce el margen: es el principal equilibrio estratégico de la licitación.</li>
+          <li><h4>Evaluar el resultado total y los riesgos</h4>Calcule ingresos, costos y resultado con la mezcla esperada. Considere los riesgos: cambios en la casuística, pacientes outlier (en las bases 2024 el día adicional se paga con PB1 × peso ÷ días P75, después de la carencia PCS + P50), calidad de la codificación y volumen de pacientes no garantizado.</li>
+          <li><h4>Considerar los ajustes por tecnología</h4>Las bases 2018 pagan aparte, una vez por egreso, prestaciones de alto costo (prótesis aórtica, plasmaféresis, sustitución renal continua, desfibriladores, coils cerebrales). Si su casuística las usa, inclúyalas: sin ese ajuste, esos egresos suelen quedar muy por sobre el costo cubierto por el GRD.</li>
+          <li><h4>Ojo con los saltos entre tramos</h4>El pago salta en los límites de tramo: un egreso de peso 1,51 se paga con el precio base 2 y uno de 1,50 con el precio base 1. Esto crea incentivos a sobrecodificar; FONASA audita la codificación.</li>
+        </ol>
+      </div>
+    </section>
+
     <!-- ================= CATÁLOGO ================= -->
     <section id="tab-catalogo" class="tab">
       <div class="card">
@@ -339,6 +560,9 @@
   <script src="js/data.js"></script>
   <script src="js/grd.js"></script>
   <script src="js/charts.js"></script>
+  <script src="js/alumno.js"></script>
+  <script src="js/caso.js"></script>
+  <script src="js/licitacion.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

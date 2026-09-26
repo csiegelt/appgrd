@@ -1,5 +1,7 @@
 # appGRD · Análisis de costos de egreso por GRD (Chile)
 
+**Herramienta docente para alumnos del Magíster · Sistema de Salud · Universidad de los Andes (UANDES).**
+
 Aplicación web local (HTML + CSS + JavaScript, sin dependencias) para analizar egresos hospitalarios bajo el mecanismo de pago por **Grupos Relacionados por el Diagnóstico (IR-GRD)** usado por MINSAL y FONASA.
 
 ```
@@ -19,6 +21,9 @@ Abrir `index.html` en Chrome o Edge. No requiere servidor ni conexión a interne
 | Distribución | Histograma + curva de densidad, bandas P25–P75 / P10–P90, curva de referencia editable, posición y percentil de la institución, evaluación de un valor, detalle por rango y box-plots por CDM / severidad / servicio / GRD |
 | Egresos | Registro, edición, búsqueda, importación y exportación CSV |
 | Simulador | Cálculo de un caso, precio base y peso de equilibrio, tabla de sensibilidad |
+| Licitación GRD | Análisis de una licitación con precio base por tramo de peso relativo (bases de camas críticas 2018 —caso histórico—, compra a privados 2023 y 2024, o personalizada): admisibilidad de la oferta, precio base de equilibrio y sugerido por tramo, resultado esperado, puntaje económico estimado, curva de pago con saltos de tramo, ajustes por tecnología (bases 2018, punto 9.7), simulador de un egreso y 5 casos de ejemplo con preguntas guía |
+| Modo alumno · Analizar un caso clínico | El alumno ingresa los datos de un paciente (GRD, precio base, peso, días, puntos de corte y desglose de costos) y obtiene el veredicto gana/pierde, tabla resumen, explicación paso a paso, gráfico pago vs. costo, curva de resultado según días de estada y según precio base, y la posición del caso frente a los demás egresos. Incluye 5 casos clínicos de ejemplo e impresión del informe |
+| Modo alumno · Practicar cálculos | Ejercicios en 4 niveles (pago y resultado; indicadores; estancia y outliers; casuística) con corrección automática, pistas, detección de errores típicos, solución paso a paso, códigos de ejercicio compartibles (ej. `N1-12345`), historial y nota 1,0–7,0 (60 %) exportable a CSV |
 | Catálogo GRD | Pesos relativos, EM norma, puntos de corte (PCI/PCS) y P50 por GRD |
 | Parámetros | Precio base, reglas de outlier superior/inferior, respaldo y restauración |
 | Guía GRD | Explicación del sistema, estructura del código IR-GRD e indicadores |
@@ -51,6 +56,9 @@ css/styles.css      estilos
 js/data.js          catálogo y egresos de ejemplo, nombres de CDM
 js/grd.js           motor de cálculo (pago, outliers, indicadores, CSV)
 js/charts.js        gráficos SVG interactivos
+js/alumno.js        modo alumno: ejercicios con corrección automática
+js/caso.js          modo alumno: análisis explicado de un caso clínico
+js/licitacion.js    análisis de licitaciones GRD por tramos de peso
 js/app.js           estado, persistencia y render de pestañas
 plantillas/         plantilla CSV de importación
 ```

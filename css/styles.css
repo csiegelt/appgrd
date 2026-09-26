@@ -14,6 +14,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -178,3 +179,106 @@ table.mini th { position: static; cursor: default; }
 .range-strip .scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 10px; }
 .range-strip .verdict { margin-top: 8px; font-size: 13px; }
 .kpi.highlight { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-soft); }
+
+/* ---------- modo alumno ---------- */
+.subtabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.subtabs button {
+  font: inherit; font-weight: 600; padding: 9px 16px; border-radius: 20px; cursor: pointer;
+  border: 1px solid #d9c3c6; background: #fff; color: var(--red-dark);
+}
+.subtabs button.active { background: var(--red); border-color: var(--red); color: #fff; }
+.alumno-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.alumno-bar > label { min-width: 200px; }
+.inline { display: flex; gap: 6px; }
+.inline input { width: 110px; }
+.inline-label { flex-direction: row; align-items: center; gap: 8px; }
+.kpis.compact { margin: 8px 0 0; }
+.kpis.compact .val { font-size: 18px; }
+.empty-state { text-align: center; color: var(--muted); padding: 28px 18px; }
+label.block { margin-top: 12px; }
+label.span2 { grid-column: span 2; }
+@media (max-width: 560px) { label.span2 { grid-column: auto; } }
+textarea { font: inherit; color: var(--ink); padding: 8px 10px; border: 1px solid #cfcfd6; border-radius: 7px; resize: vertical; width: 100%; }
+h4.sub { margin: 18px 0 8px; color: var(--red-dark); font-size: 14px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.k-actions { margin-top: 14px; }
+
+/* enunciado estilo lámina */
+.caso-titulo { background: var(--red); color: #fff; font-weight: 700; font-size: 17px; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; }
+table.caso { border: 1px solid #333; }
+table.caso th { background: var(--red-soft); position: static; cursor: default; }
+table.caso td, table.caso th { border: 1px solid #555; white-space: normal; }
+table.caso tr.sub td { font-size: 12px; color: var(--muted); padding-top: 3px; padding-bottom: 3px; }
+table.caso tr.total td { font-size: 15px; background: #fbf3f4; }
+table.caso small { color: var(--muted); }
+.reglas { background: #f4f6fc; border-left: 4px solid #2c4fa8; padding: 8px 12px; border-radius: 6px; margin-top: 12px; font-size: 13px; }
+.reglas ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* preguntas */
+.q { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+.q.ok { border-color: #9fd0b1; background: #f3faf6; }
+.q.bad { border-color: #f0a9b1; background: #fff6f7; }
+.q-head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.q-num { background: var(--red); color: #fff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex: none; }
+.q-text { flex: 1; }
+.q-status { font-size: 18px; }
+.q.ok .q-status { color: var(--pos); }
+.q.bad .q-status { color: var(--neg); }
+.q-body { display: flex; gap: 8px; margin-top: 8px; }
+.q-body input, .q-body select { flex: 1; }
+.q-echo { font-size: 12px; color: var(--muted); margin-top: 4px; min-height: 1em; }
+.q-pista { background: var(--warn-bg); border-radius: 6px; padding: 6px 10px; font-size: 13px; margin-top: 6px; }
+.q-msg { color: var(--neg); font-size: 13px; margin-top: 6px; font-weight: 600; }
+.q-sol { color: var(--pos); font-size: 13px; margin-top: 6px; }
+.a-actions { margin-top: 8px; }
+.feedback { margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: #fff6e0; border-left: 4px solid #e0a800; }
+.feedback.good { background: #e7f4ec; border-left-color: var(--pos); }
+
+/* análisis de caso */
+.veredicto { border-left: 8px solid #9a9aa2; }
+.veredicto.gana { border-left-color: var(--pos); background: linear-gradient(90deg, #eef8f2, #fff 60%); }
+.veredicto.pierde { border-left-color: var(--neg); background: linear-gradient(90deg, #fdeef0, #fff 60%); }
+.v-caso { font-weight: 700; color: var(--red-dark); }
+.v-caso span { font-weight: 500; color: var(--muted); }
+.v-relato { margin: 6px 0; color: #444; font-style: italic; }
+.v-main { font-size: 24px; margin: 8px 0 4px; }
+.veredicto.gana .v-main b { color: var(--pos); }
+.veredicto.pierde .v-main b { color: var(--neg); }
+.v-formula { color: var(--red); font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+.v-avisos { margin-top: 8px; font-size: 12px; color: #8a6d00; }
+.explica { line-height: 1.55; }
+ol.pasos { padding-left: 20px; margin: 0; }
+ol.pasos li { margin-bottom: 12px; }
+ol.pasos h4 { margin: 0 0 4px; color: var(--red-dark); font-size: 14px; }
+.calc { background: var(--red-soft); border-radius: 6px; padding: 5px 10px; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.como-leer { font-size: 13px; color: #444; background: #f7f7f9; border-radius: 6px; padding: 8px 12px; line-height: 1.5; margin-top: 8px; }
+.aprendizaje ul { line-height: 1.6; margin: 0; }
+
+/* impresión del informe */
+@media print {
+  .topbar, #filters, .subtabs, .no-print, #toast, .chart-tip { display: none !important; }
+  body { background: #fff; }
+  main { padding: 0; max-width: none; }
+  .card { break-inside: avoid; border-color: #bbb; }
+  .grid2 { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------- título docente ---------- */
+.h1-tag {
+  display: inline-block; vertical-align: middle; margin-left: 10px; font-size: 12px; font-weight: 700;
+  background: #fff; color: var(--red-dark); padding: 3px 10px; border-radius: 20px; letter-spacing: .2px;
+}
+@media (max-width: 700px) { .h1-tag { display: block; margin: 6px 0 0; width: fit-content; } }
+
+/* ---------- licitación ---------- */
+input.num-in { width: 130px; text-align: right; padding: 5px 8px; }
+input.num-in.oferta { border-color: var(--red); font-weight: 600; }
+input.auto { background: #f3f3f6; color: var(--red-dark); font-weight: 600; }
+.relato { background: #f7f7f9; border-left: 4px solid var(--red); border-radius: 6px; padding: 10px 14px; line-height: 1.55; }
+.relato p { margin: 6px 0 10px; }
+.relato ol { margin: 6px 0 4px; }
+.l-sim { margin-top: 12px; }
+.tramo-bars > div { display: grid; grid-template-columns: 110px 1fr 40px; gap: 8px; align-items: center; margin: 10px 0; }
+.tramo-bars .tb { background: #eee; border-radius: 4px; height: 16px; overflow: hidden; }
+.tramo-bars .tb i { display: block; height: 100%; background: #c9a3a9; }
+.grid2 > * { min-width: 0; }
+table.wrap td, table.wrap th { white-space: normal; }

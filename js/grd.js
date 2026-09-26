@@ -4,7 +4,12 @@ const GRD = (() => {
   const fmtCLP = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
   const fmtNum = (d = 2) => new Intl.NumberFormat('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d });
 
-  const clp = v => (v == null || isNaN(v)) ? '—' : fmtCLP.format(Math.round(v));
+  // Negativos al estilo chileno: -$1.520.000
+  const clp = v => {
+    if (v == null || isNaN(v)) return '—';
+    const r = Math.round(v);
+    return r < 0 ? '-' + fmtCLP.format(-r) : fmtCLP.format(r);
+  };
   const num = (v, d = 2) => (v == null || isNaN(v)) ? '—' : fmtNum(d).format(v);
   const pct = v => (v == null || !isFinite(v)) ? '—' : fmtNum(1).format(v * 100) + '%';
 

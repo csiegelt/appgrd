@@ -113,7 +113,7 @@ function render() {
   refreshFilterOptions();
   ({
     dashboard: renderDashboard, distribucion: renderDistribucion, egresos: renderEgresos,
-    simulador: renderSim, catalogo: renderCatalogo, parametros: renderParams, guia: () => {}
+    simulador: renderSim, licitacion: Licitacion.render, alumno: Alumno.render, catalogo: renderCatalogo, parametros: renderParams, guia: () => {}
   })[currentTab]();
 }
 
@@ -713,4 +713,7 @@ function bind() {
 
 load();
 bind();
+Alumno.init();
+Licitacion.init();
+Caso.init();
 setTab('dashboard');
