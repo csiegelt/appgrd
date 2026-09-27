@@ -11,6 +11,8 @@ Resultado       = Pago − Costo total asignado
 
 ## Uso
 
+**Manual de ayuda:** [manual/index.html](manual/index.html) — guía paso a paso de cada módulo, con capturas y datos de ejemplo. También se abre desde la pestaña *Manual de ayuda* de la aplicación.
+
 Abrir `index.html` en Chrome o Edge. No requiere servidor ni conexión a internet. Los datos se guardan sólo en el navegador (localStorage); use *Parámetros → Descargar respaldo* para exportarlos.
 
 ## Funcionalidades
@@ -61,4 +63,14 @@ js/caso.js          modo alumno: análisis explicado de un caso clínico
 js/licitacion.js    análisis de licitaciones GRD por tramos de peso
 js/app.js           estado, persistencia y render de pestañas
 plantillas/         plantilla CSV de importación
+manual/             manual de ayuda (index.html), capturas (img/) y script que las genera
+```
+
+### Regenerar las capturas del manual
+
+Si cambia la aplicación, las capturas se regeneran con los datos de ejemplo (requiere Node.js y Google Chrome):
+
+```
+npm install puppeteer-core
+node manual/capturas.js
 ```

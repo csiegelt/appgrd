@@ -25,6 +25,7 @@
       <button data-tab="catalogo">Catálogo GRD</button>
       <button data-tab="parametros">Parámetros</button>
       <button data-tab="guia">Guía GRD</button>
+      <a class="tab-link" href="manual/index.html" target="_blank" rel="noopener" title="Abre el manual en una pestaña nueva">Manual de ayuda ↗</a>
     </nav>
   </header>
 
@@ -110,8 +111,8 @@
           </div>
         </div>
         <div class="dist-controls bench">
-          <label>Referencia · media <input type="number" id="d-bmean" step="any"></label>
-          <label>Referencia · desviación estándar <input type="number" id="d-bsd" step="any" min="0"></label>
+          <label>Referencia · media <input type="text" inputmode="decimal" autocomplete="off" id="d-bmean"></label>
+          <label>Referencia · desviación estándar <input type="text" inputmode="decimal" autocomplete="off" id="d-bsd"></label>
           <button class="btn ghost" id="d-bdefault" type="button">Valores sugeridos</button>
           <label class="eval">Evaluar un valor <span class="range-val" id="d-eval-val">—</span>
             <input type="range" id="d-eval" step="any">
@@ -163,9 +164,9 @@
           <label>Fecha egreso <input type="date" id="e-fecha" required></label>
           <label>Código IR-GRD <input id="e-grd" required list="grd-list" placeholder="184103"></label>
           <label>Servicio <input id="e-serv" placeholder="Medicina"></label>
-          <label>Días de estada <input type="number" id="e-dias" min="0" step="1" required></label>
-          <label>Costo total asignado ($) <input type="number" id="e-costo" min="0" step="1" required></label>
-          <label>Peso manual (opcional) <input type="number" id="e-peso" min="0" step="0.0001" placeholder="usa catálogo"></label>
+          <label>Días de estada <input type="text" inputmode="decimal" autocomplete="off" id="e-dias" required></label>
+          <label>Costo total asignado ($) <input type="text" inputmode="decimal" autocomplete="off" id="e-costo" required></label>
+          <label>Peso manual (opcional) <input type="text" inputmode="decimal" autocomplete="off" id="e-peso" placeholder="usa catálogo"></label>
           <div class="form-actions">
             <button class="btn" type="submit">Guardar egreso</button>
             <button class="btn ghost" type="reset" id="e-reset">Limpiar</button>
@@ -197,11 +198,11 @@
         <div class="card">
           <h3>Simulador de un caso</h3>
           <form id="form-sim" class="form-grid one">
-            <label>Precio base pactado ($) <input type="number" id="s-pb" step="1"></label>
+            <label>Precio base pactado ($) <input type="text" inputmode="decimal" autocomplete="off" id="s-pb"></label>
             <label>GRD (opcional, carga peso y puntos de corte) <input id="s-grd" list="grd-list"></label>
-            <label>Peso del episodio <input type="number" id="s-peso" step="0.0001" value="2.34"></label>
-            <label>Costo total asignado ($) <input type="number" id="s-costo" step="1" value="5500000"></label>
-            <label>Días de estada (opcional) <input type="number" id="s-dias" step="1"></label>
+            <label>Peso del episodio <input type="text" inputmode="decimal" autocomplete="off" id="s-peso" value="2,34"></label>
+            <label>Costo total asignado ($) <input type="text" inputmode="decimal" autocomplete="off" id="s-costo" value="5.500.000"></label>
+            <label>Días de estada (opcional) <input type="text" inputmode="decimal" autocomplete="off" id="s-dias"></label>
             <label class="check"><input type="checkbox" id="s-ajustes"> Aplicar ajustes por outlier</label>
           </form>
         </div>
@@ -448,11 +449,11 @@
         <form id="form-cat" class="form-grid">
           <label>Código <input id="c-cod" required maxlength="6"></label>
           <label>Descripción <input id="c-desc" required></label>
-          <label>Peso relativo <input type="number" id="c-peso" step="0.0001" required></label>
-          <label>EM norma (días) <input type="number" id="c-em" step="0.01" required></label>
-          <label>PCI <input type="number" id="c-pci" step="1" required></label>
-          <label>PCS <input type="number" id="c-pcs" step="1" required></label>
-          <label>P50 <input type="number" id="c-p50" step="1" required></label>
+          <label>Peso relativo <input type="text" inputmode="decimal" autocomplete="off" id="c-peso" required></label>
+          <label>EM norma (días) <input type="text" inputmode="decimal" autocomplete="off" id="c-em" required></label>
+          <label>PCI <input type="text" inputmode="decimal" autocomplete="off" id="c-pci" required></label>
+          <label>PCS <input type="text" inputmode="decimal" autocomplete="off" id="c-pcs" required></label>
+          <label>P50 <input type="text" inputmode="decimal" autocomplete="off" id="c-p50" required></label>
           <div class="form-actions"><button class="btn" type="submit">Agregar / actualizar</button></div>
         </form>
         <input id="search-cat" class="search" placeholder="Buscar GRD…">
@@ -465,7 +466,7 @@
       <div class="card">
         <h3>Parámetros de pago</h3>
         <form id="form-param" class="form-grid">
-          <label>Precio base ($ por unidad de peso) <input type="number" id="p-pb" step="1"></label>
+          <label>Precio base ($ por unidad de peso) <input type="text" inputmode="decimal" autocomplete="off" id="p-pb"></label>
           <label>Nombre del convenio / establecimiento <input id="p-nombre"></label>
           <label class="check wide"><input type="checkbox" id="p-ajustes"> Aplicar ajustes por outliers (si no, pago = precio base × peso, como en el ejercicio)</label>
           <label>Outlier superior: días de carencia
@@ -480,9 +481,9 @@
               <option value="fijo">Monto fijo por día</option>
             </select>
           </label>
-          <label>Monto fijo por día ($) <input type="number" id="p-diafijo" step="1"></label>
-          <label>Factor valor día adicional <input type="number" id="p-factordia" step="0.01"></label>
-          <label>Outlier inferior: factor sobre pago <input type="number" id="p-factorinf" step="0.01"></label>
+          <label>Monto fijo por día ($) <input type="text" inputmode="decimal" autocomplete="off" id="p-diafijo"></label>
+          <label>Factor valor día adicional <input type="text" inputmode="decimal" autocomplete="off" id="p-factordia"></label>
+          <label>Outlier inferior: factor sobre pago <input type="text" inputmode="decimal" autocomplete="off" id="p-factorinf"></label>
           <div class="form-actions"><button class="btn" type="submit">Guardar parámetros</button></div>
         </form>
         <p class="hint">Las reglas de outlier dependen del convenio (Norma Técnica MINSAL, bases de licitación FONASA, contrato con aseguradora). Ajuste estos parámetros según su convenio.</p>
@@ -493,7 +494,7 @@
           <button class="btn ghost" id="backup">Descargar respaldo completo (JSON)</button>
           <label class="btn ghost file">Restaurar respaldo <input type="file" id="restore" accept=".json"></label>
         </div>
-        <p class="hint">Todos los datos se guardan sólo en este navegador (localStorage). Nada se envía a internet.</p>
+        <p class="hint">Todos los datos se guardan sólo en este navegador (localStorage). Nada se envía a internet. El respaldo incluye egresos, catálogo, parámetros, la pestaña Licitación GRD, el caso clínico y el historial del Modo alumno.</p>
       </div>
     </section>
 

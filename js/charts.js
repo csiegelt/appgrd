@@ -110,7 +110,7 @@ const Charts = (() => {
   function scatter(container, rows, precioBase, onPoint) {
     const pts = rows.filter(r => r.peso != null && r.costo != null);
     if (pts.length < 1) return empty(container);
-    const W = 640, H = 340, m = { l: 62, r: 16, t: 14, b: 42 };
+    const W = 640, H = 340, m = { l: 62, r: 16, t: 26, b: 42 };
     const s = svg(container, W, H);
     const xmax = Math.max(...pts.map(r => r.peso)) * 1.08;
     const ymax = Math.max(Math.max(...pts.map(r => r.costo)), precioBase * xmax, ...pts.map(r => r.pago || 0)) * 1.05;
@@ -118,7 +118,7 @@ const Charts = (() => {
     gridY(s, niceTicks(0, ymax, 5), y, m.l, W - m.r, short);
     axisX(s, niceTicks(0, xmax, 8), x, H - m.b, v => GRD.num(v, 1));
     text(s, (m.l + W - m.r) / 2, H - 6, 'Peso GRD', { 'text-anchor': 'middle', class: 'axis', fill: '#6b6b70', 'font-size': 11 });
-    text(s, 14, m.t + 4, 'Costo', { fill: '#6b6b70', 'font-size': 11 });
+    text(s, 8, 14, 'Costo ($)', { fill: '#6b6b70', 'font-size': 11 });
 
     // zona de pérdida (sobre la línea)
     el('path', { d: `M${x(0)},${y(0)} L${x(xmax)},${y(precioBase * xmax)} L${x(xmax)},${y(ymax)} L${x(0)},${y(ymax)} Z`, fill: C.neg, opacity: .04 }, s);

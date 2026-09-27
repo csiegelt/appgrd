@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de uso · Análisis de egresos GRD</title>
+<style>
+  :root {
+    --red: #e2001a; --red-dark: #8a0d1e; --red-soft: #f5e6e8; --ink: #1d1d1f; --muted: #5f5f66;
+    --line: #e2e2e6; --bg: #f6f6f8; --card: #fff; --pos: #1f7a4a; --neg: #c21a2b; --mk: #ffb400;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 16px; }
+  body { margin: 0; font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: var(--ink); background: var(--bg); }
+  header.portada { background: var(--red); color: #fff; padding: 28px 24px 26px; }
+  header.portada .wrap { max-width: 1180px; margin: 0 auto; }
+  header.portada .logo { display: inline-block; background: #fff; color: var(--red); font-weight: 800; padding: 4px 10px; border-radius: 6px; letter-spacing: 1px; margin-right: 10px; }
+  header.portada h1 { margin: 10px 0 4px; font-size: 30px; line-height: 1.2; }
+  header.portada p { margin: 0; opacity: .92; }
+  header.portada .tag { display: inline-block; margin-top: 12px; background: #fff; color: var(--red-dark); font-weight: 700; font-size: 13px; padding: 4px 12px; border-radius: 20px; }
+  .layout { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 32px; padding: 24px 16px 60px; }
+  nav.toc { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow-y: auto; font-size: 14px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 12px; }
+  nav.toc b { display: block; color: var(--red-dark); margin: 0 0 6px 6px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; }
+  nav.toc a { display: block; padding: 4px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { background: var(--red-soft); color: var(--red-dark); }
+  nav.toc ol ol a { padding-left: 20px; font-size: 13px; color: var(--muted); }
+  main { min-width: 0; }
+  section.cap { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 22px 26px; margin-bottom: 22px; }
+  h2 { margin: 0 0 10px; color: var(--red-dark); font-size: 24px; border-bottom: 3px solid var(--red); padding-bottom: 6px; }
+  h3 { color: var(--red-dark); font-size: 18px; margin: 26px 0 8px; }
+  h4 { margin: 18px 0 6px; font-size: 16px; }
+  p { margin: 8px 0; }
+  a { color: var(--red-dark); }
+  code { background: #f0f0f3; padding: 1px 6px; border-radius: 4px; font-size: 14px; overflow-wrap: anywhere; }
+  .mk { display: inline-block; text-indent: 0; min-width: 24px; height: 24px; line-height: 20px; border-radius: 50%; background: var(--mk); color: var(--ink); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); font-weight: 800; font-size: 13px; text-align: center; margin-right: 4px; vertical-align: 1px; }
+  ol.pasos { padding-left: 0; list-style: none; counter-reset: paso; }
+  ol.pasos > li { position: relative; padding: 8px 0 8px 44px; border-bottom: 1px dashed var(--line); counter-increment: paso; }
+  ol.pasos > li::before { content: counter(paso); position: absolute; left: 0; top: 8px; width: 30px; height: 30px; border-radius: 50%; background: var(--red); color: #fff; font-weight: 700; text-align: center; line-height: 30px; }
+  ol.pasos > li:last-child { border-bottom: 0; }
+  ul.marcas { list-style: none; padding-left: 0; }
+  ul.marcas li { padding: 4px 0 4px 34px; text-indent: -34px; }
+  figure { margin: 16px 0 22px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; counter-increment: fig; }
+  figure a { display: block; }
+  figure img { display: block; width: 100%; height: auto; border-radius: 6px; background: #fff; }
+  figure.angosta img { max-width: 720px; margin: 0 auto; }
+  figure.movil img { max-width: 300px; margin: 0 auto; }
+  figcaption { font-size: 14px; color: var(--muted); margin-top: 8px; }
+  figcaption::before { content: "Figura " counter(fig) ". "; font-weight: 700; color: var(--ink); }
+  main { counter-reset: fig; }
+  .caja { border-radius: 8px; padding: 12px 16px; margin: 14px 0; border-left: 5px solid; }
+  .caja b.t { display: block; margin-bottom: 2px; }
+  .consejo { background: #eef8f2; border-color: var(--pos); }
+  .importante { background: #fff6e0; border-color: #e0a800; }
+  .ejercicio { background: #eef2fb; border-color: #2c4fa8; }
+  .formula { background: var(--red-soft); border-left: 5px solid var(--red); padding: 10px 14px; border-radius: 6px; font-weight: 700; color: var(--red-dark); margin: 10px 0; }
+  .tabla { overflow-x: auto; margin: 10px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--red-soft); color: var(--red-dark); }
+  .ruta { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 12px 0; padding: 0; list-style: none; counter-reset: r; }
+  .ruta li { counter-increment: r; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+  .ruta li::before { content: counter(r); display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--red); color: #fff; text-align: center; line-height: 22px; font-weight: 700; margin-right: 6px; font-size: 12px; }
+  .ruta li b { color: var(--red-dark); }
+  .pos { color: var(--pos); font-weight: 700; } .neg { color: var(--neg); font-weight: 700; }
+  dl.glosario dt { font-weight: 700; color: var(--red-dark); margin-top: 10px; }
+  dl.glosario dd { margin: 2px 0 0 0; }
+  details { border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; margin: 8px 0; background: #fff; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .volver { font-size: 13px; text-align: right; margin-top: 10px; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 10px 16px 40px; }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; max-height: none; }
+    section.cap { padding: 18px 16px; }
+  }
+  @media print {
+    nav.toc, .volver { display: none; }
+    .layout { display: block; padding: 0; }
+    body { background: #fff; font-size: 12pt; }
+    section.cap { border: 0; padding: 0; page-break-before: always; }
+    figure { break-inside: avoid; }
+    header.portada { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<header class="portada">
+  <div class="wrap">
+    <span class="logo">GRD</span>
+    <h1>Manual de uso · Análisis de egresos GRD</h1>
+    <p>Guía paso a paso de cada módulo de la aplicación, con capturas y datos de ejemplo.</p>
+    <span class="tag">Para alumnos del Magíster · Sistema de Salud · UANDES</span>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="toc" aria-label="Índice">
+    <b>Índice</b>
+    <ol>
+      <li><a href="#como-usar">0. Cómo usar este manual</a></li>
+      <li><a href="#primeros-pasos">1. Primeros pasos</a></li>
+      <li><a href="#conceptos">2. Conceptos GRD en 5 minutos</a></li>
+      <li><a href="#egresos">3. Egresos</a></li>
+      <li><a href="#resumen">4. Resumen</a></li>
+      <li><a href="#distribucion">5. Distribución</a></li>
+      <li><a href="#simulador">6. Simulador</a></li>
+      <li><a href="#licitacion">7. Licitación GRD</a>
+        <ol>
+          <li><a href="#lic-casos">Casos de ejemplo</a></li>
+          <li><a href="#lic-bases">Bases y oferta</a></li>
+          <li><a href="#lic-simular">Simular un egreso y tecnología</a></li>
+          <li><a href="#lic-casuistica">Casuística y costos</a></li>
+          <li><a href="#lic-evaluacion">Evaluación y curvas</a></li>
+        </ol>
+      </li>
+      <li><a href="#caso">8. Modo alumno · Analizar un caso</a></li>
+      <li><a href="#practica">9. Modo alumno · Practicar cálculos</a></li>
+      <li><a href="#catalogo">10. Catálogo GRD</a></li>
+      <li><a href="#parametros">11. Parámetros y respaldo</a></li>
+      <li><a href="#guia">12. Guía GRD</a></li>
+      <li><a href="#faq">13. Preguntas frecuentes</a></li>
+      <li><a href="#glosario">14. Glosario</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="como-usar">
+    <h2>0. Cómo usar este manual</h2>
+    <p>Este manual explica, módulo por módulo, qué hace cada pestaña de la aplicación, cómo se usa paso a paso y cómo interpretar sus resultados. Todas las imágenes se tomaron con los <b>datos de ejemplo</b> que trae la aplicación, así que usted puede reproducir cada paso en su computador y obtener las mismas cifras.</p>
+    <div class="caja importante">
+      <b class="t">Las letras amarillas</b>
+      En las capturas, los círculos amarillos con letras (<span class="mk">A</span> <span class="mk">B</span> <span class="mk">C</span>…) marcan los elementos que se explican en el texto. Cada letra del texto corresponde a la misma letra en la imagen de esa sección. Se usan letras y no números para no confundirlas con la numeración propia de la aplicación.
+    </div>
+    <p>Puede leer el manual de corrido o ir directo al módulo que necesita usando el índice. Haga clic en cualquier imagen para verla en tamaño completo.</p>
+    <div class="caja importante">
+      <b class="t">Datos de ejemplo y datos oficiales</b>
+      Los egresos, clínicas, pacientes y pesos GRD que trae la aplicación son <b>ficticios o ilustrativos</b> y sirven para aprender. Las bases de licitación de camas críticas 2018 son un <b>caso histórico</b> y no corresponden a condiciones vigentes. Para un análisis real, cargue la norma IR-GRD vigente (MINSAL/FONASA) y los egresos de su institución.
+    </div>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="primeros-pasos">
+    <h2>1. Primeros pasos</h2>
+
+    <h3>1.1 Abrir la aplicación</h3>
+    <ol class="pasos">
+      <li>Descargue la carpeta de la aplicación. Si la recibe desde GitHub (<a href="https://github.com/csiegelt/appgrd" target="_blank" rel="noopener">github.com/csiegelt/appgrd</a>), use el botón verde <b>Code › Download ZIP</b> y descomprima el archivo.</li>
+      <li>Abra el archivo <code>index.html</code> con doble clic. Se abrirá en su navegador; se recomienda <b>Google Chrome</b> o <b>Microsoft Edge</b>.</li>
+      <li>No necesita instalar nada ni estar conectado a internet: la aplicación funciona completa en su computador.</li>
+    </ol>
+    <p>Este manual se abre desde la pestaña <b>Manual de ayuda</b>, a la derecha de las pestañas de la aplicación, o con el archivo <code>manual/index.html</code>.</p>
+
+    <h3>1.2 La pantalla principal</h3>
+    <figure><a href="img/01-inicio.webp" target="_blank"><img src="img/01-inicio.webp" width="1600" height="569" alt="Pantalla principal de la aplicación con el título, las pestañas, los filtros y los indicadores" loading="lazy"></a>
+      <figcaption>Pantalla principal al abrir la aplicación (pestaña Resumen) con los 80 egresos de ejemplo.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Título.</b> Identifica la herramienta docente del Magíster.</li>
+      <li><span class="mk">B</span> <b>Pestañas.</b> Cada una es un módulo: Resumen, Distribución, Egresos, Simulador, Licitación GRD, Modo alumno, Catálogo GRD, Parámetros y Guía GRD. Haga clic en una para cambiar de módulo.</li>
+      <li><span class="mk">C</span> <b>Filtros.</b> Sólo aparecen en Resumen y Distribución; limitan el análisis a una parte de los egresos.</li>
+      <li><span class="mk">D</span> <b>Indicadores.</b> Los números clave del análisis (se explican en el capítulo 4).</li>
+    </ul>
+
+    <h3>1.3 Dónde se guardan los datos</h3>
+    <p>Todo lo que usted ingresa se guarda <b>automáticamente en su navegador</b>, en su computador. Nada se envía a internet. Esto tiene dos consecuencias:</p>
+    <ul>
+      <li>Si abre la aplicación en otro navegador (por ejemplo, Edge en vez de Chrome) o en otro computador, verá otros datos.</li>
+      <li>Para guardar una copia o llevar sus datos a otro equipo, use <b>Parámetros › Descargar respaldo completo</b> (capítulo 11). El archivo incluye egresos, catálogo, parámetros, la pestaña Licitación GRD, el caso clínico y el historial del Modo alumno.</li>
+    </ul>
+    <p>La primera vez que se abre, la aplicación carga <b>80 egresos de ejemplo</b> y un catálogo de 27 GRD ilustrativos, y muestra un aviso en la parte inferior de la pantalla.</p>
+
+    <h3>1.4 Cómo escribir los números</h3>
+    <div class="tabla"><table>
+      <tr><th>Tipo de dato</th><th>Escriba así</th><th>También se acepta</th></tr>
+      <tr><td>Montos en pesos</td><td><code>3.000.000</code></td><td><code>3000000</code>, <code>$3.000.000</code></td></tr>
+      <tr><td>Decimales (peso, EM)</td><td><code>2,34</code></td><td><code>2.34</code></td></tr>
+      <tr><td>Montos negativos (pérdida)</td><td><code>-1.520.000</code></td><td><code>-$1.520.000</code></td></tr>
+      <tr><td>Porcentajes</td><td><code>127,6</code></td><td><code>127,6 %</code></td></tr>
+    </table></div>
+    <p>Este formato sirve en <b>todos</b> los campos numéricos de la aplicación y en los archivos CSV. En los ejercicios, bajo cada respuesta aparece <b>"Se leerá como…"</b> para que confirme que el número se interpretó bien.</p>
+
+    <h3>1.5 Ruta de aprendizaje recomendada</h3>
+    <ol class="ruta">
+      <li><b>Guía GRD</b><br>Repase los conceptos.</li>
+      <li><b>Simulador</b><br>Calcule un caso simple.</li>
+      <li><b>Modo alumno · Caso</b><br>Analice un paciente con explicación.</li>
+      <li><b>Modo alumno · Practicar</b><br>Resuelva ejercicios con nota.</li>
+      <li><b>Egresos</b><br>Revise o cargue datos.</li>
+      <li><b>Resumen</b><br>Diagnostique la institución.</li>
+      <li><b>Distribución</b><br>Ubique a la institución frente a una referencia.</li>
+      <li><b>Licitación GRD</b><br>Prepare una oferta por tramos.</li>
+    </ol>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="conceptos">
+    <h2>2. Conceptos GRD en 5 minutos</h2>
+    <p>Los <b>Grupos Relacionados por el Diagnóstico (GRD)</b> clasifican cada egreso hospitalario en un grupo de pacientes clínicamente parecidos y con consumo de recursos similar. En Chile se usa la versión <b>IR-GRD</b>. Con el mecanismo de pago GRD, el asegurador (por ejemplo, FONASA) no paga cada prestación por separado: paga un <b>monto fijo por egreso</b> según su GRD.</p>
+    <div class="formula">Pago del egreso = Precio base × Peso relativo del GRD<br>Resultado = Pago − Costo</div>
+    <p>Ejemplo de la clase: $3.000.000 × 2,34 = <b>$7.020.000</b>. Si el egreso costó $5.500.000, el resultado es <span class="pos">+$1.520.000</span>.</p>
+    <div class="tabla"><table>
+      <tr><th>Concepto</th><th>Qué es</th><th>Cómo se interpreta</th></tr>
+      <tr><td>Precio base</td><td>Valor en pesos de un egreso de peso 1,0, pactado con el asegurador.</td><td>Es el "precio" que negocia la institución.</td></tr>
+      <tr><td>Peso relativo</td><td>Costo esperado del GRD frente al egreso promedio (peso 1,0).</td><td>Peso 2,34 = paciente 2,34 veces más costoso que el promedio.</td></tr>
+      <tr><td>Código IR-GRD</td><td>6 dígitos: CDM (2) + tipo (1) + GRD (2) + severidad (1).</td><td>184103 → CDM 18 infecciosas, médico, severidad 3 (mayor).</td></tr>
+      <tr><td>PCI / PCS</td><td>Puntos de corte inferior y superior de estadía del GRD.</td><td>Entre ambos: <b>inlier</b>. Sobre el PCS: <b>outlier superior</b>. Bajo el PCI: <b>outlier inferior</b>.</td></tr>
+      <tr><td>P50 (carencia)</td><td>Mediana de estadía del GRD.</td><td>En outliers superiores, los días adicionales se pagan sólo después de PCS + P50.</td></tr>
+      <tr><td>Costo por unidad de peso</td><td>Costo ÷ peso.</td><td><b>Si supera al precio base, se pierde.</b> Es el "precio base de equilibrio".</td></tr>
+      <tr><td>Índice casuístico</td><td>Peso promedio de los egresos.</td><td>Sobre 1,0 = pacientes más complejos que el promedio.</td></tr>
+      <tr><td>IEMA</td><td>Estancia media observada ÷ estancia media esperada según la norma.</td><td>Bajo 1 = eficiente; sobre 1 = estadías más largas que la norma.</td></tr>
+      <tr><td>% de recuperación</td><td>Pago ÷ costo × 100.</td><td>Sobre 100 % el pago cubre el costo.</td></tr>
+    </table></div>
+    <p>La pestaña <a href="#guia">Guía GRD</a> de la aplicación resume estos conceptos, y el <a href="#glosario">glosario</a> al final de este manual los define uno a uno.</p>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="egresos">
+    <h2>3. Egresos: la base de datos</h2>
+    <p><b>Para qué sirve:</b> aquí están los pacientes dados de alta (egresos). Las pestañas Resumen, Distribución y Licitación (con fuente "egresos cargados") se calculan a partir de esta lista.</p>
+
+    <h3>3.1 Registrar un egreso</h3>
+    <figure><a href="img/10-egresos-formulario.webp" target="_blank"><img src="img/10-egresos-formulario.webp" width="1593" height="313" alt="Formulario para registrar un egreso con vista previa del cálculo" loading="lazy"></a>
+      <figcaption>Formulario de registro con los datos del caso de la clase: GRD 184103, 12 días, costo $5.500.000.</figcaption></figure>
+    <ol class="pasos">
+      <li>Escriba el <b>ID del episodio</b> (por ejemplo, <code>EP-9001</code>) y la <b>fecha de egreso</b>.</li>
+      <li><span class="mk">A</span> Escriba el <b>código IR-GRD</b> de 6 dígitos. Al escribir aparece una lista con los GRD del catálogo.</li>
+      <li>Escriba el <b>servicio</b> y <span class="mk">B</span> los <b>días de estada</b>.</li>
+      <li><span class="mk">C</span> Escriba el <b>costo total asignado</b> al egreso, en pesos.</li>
+      <li><span class="mk">D</span> Deje vacío el <b>peso manual</b>: el peso se toma del catálogo. Úselo sólo si el GRD no está en el catálogo.</li>
+      <li><span class="mk">E</span> Revise la <b>vista previa</b>: muestra el diagnóstico, CDM, tipo, severidad, el cálculo del pago, si es inlier u outlier (con PCI y PCS) y el resultado.</li>
+      <li><span class="mk">F</span> Presione <b>Guardar egreso</b>.</li>
+    </ol>
+
+    <h3>3.2 La tabla de egresos</h3>
+    <figure><a href="img/11-egresos-tabla.webp" target="_blank"><img src="img/11-egresos-tabla.webp" width="1593" height="800" alt="Tabla de egresos ordenada por resultado" loading="lazy"></a>
+      <figcaption>Tabla de egresos ordenada por resultado: arriba quedan los que más pierden.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Importar CSV:</b> carga egresos desde una planilla (ver 3.3).</li>
+      <li><span class="mk">B</span> <b>Exportar CSV:</b> descarga la tabla con todos los cálculos (pago, resultado, tipo de estancia…) para abrirla en Excel.</li>
+      <li><span class="mk">C</span> <b>Cargar datos de ejemplo:</b> reemplaza los egresos por los 80 de ejemplo.</li>
+      <li><span class="mk">D</span> <b>Borrar todo:</b> elimina todos los egresos. Pide confirmación: haga clic dos veces.</li>
+      <li><span class="mk">E</span> <b>Buscador:</b> filtra por ID, código GRD, diagnóstico o servicio.</li>
+      <li><span class="mk">F</span> <b>Ordenar:</b> haga clic en el encabezado de cualquier columna; un segundo clic invierte el orden (▲/▼).</li>
+      <li><b>Editar / ✕:</b> al final de cada fila (desplace la tabla hacia la derecha) están los botones para corregir o borrar ese egreso. Al editar, los datos vuelven al formulario de arriba.</li>
+    </ul>
+    <p>Las columnas más útiles son <b>Estancia</b> (inlier u outlier), <b>Pago GRD</b>, <b>Costo</b>, <b>Resultado</b> (<span class="pos">verde</span> si gana, <span class="neg">rojo</span> si pierde) y <b>% recup.</b></p>
+
+    <h3>3.3 Importar sus propios egresos</h3>
+    <ol class="pasos">
+      <li>Prepare una planilla con estas columnas (la primera fila son los nombres):
+        <div class="tabla"><table>
+          <tr><th>id</th><th>fecha_egreso</th><th>grd</th><th>servicio</th><th>dias_estada</th><th>costo</th><th>peso</th></tr>
+          <tr><td>EP-1001</td><td>15-03-2026</td><td>184103</td><td>UPC</td><td>12</td><td>5.500.000</td><td>(opcional)</td></tr>
+        </table></div>
+        Hay una plantilla lista en <code>plantillas/egresos_plantilla.csv</code>.</li>
+      <li>En Excel, use <b>Archivo › Guardar como</b> y elija el tipo <b>CSV UTF-8 (delimitado por comas)</b>; el tipo <b>CSV (delimitado por comas)</b> también sirve. Según la configuración regional, Excel separa con coma o con punto y coma: la aplicación acepta ambos y conserva los tildes (por ejemplo, «Cirugía»). Los costos pueden ir con o sin puntos de miles (<code>5.500.000</code> o <code>5500000</code>).</li>
+      <li>Presione <b>Importar CSV</b> y elija el archivo. Un aviso indica cuántos egresos se importaron. Si un ID ya existe, ese egreso se actualiza.</li>
+    </ol>
+    <div class="caja consejo"><b class="t">Consejo</b>Si un GRD de sus datos no está en el catálogo, la fila mostrará "(GRD no está en catálogo)" y no tendrá pago. Importe la norma IR-GRD vigente en la pestaña <a href="#catalogo">Catálogo GRD</a> o indique el peso en la columna <code>peso</code>.</div>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="resumen">
+    <h2>4. Resumen: la foto general de la institución</h2>
+    <p><b>Para qué sirve:</b> responde la pregunta <i>"¿cómo le va a la institución con el pago GRD y dónde gana o pierde?"</i>.</p>
+
+    <h3>4.1 Filtrar el análisis</h3>
+    <figure><a href="img/02-filtros.webp" target="_blank"><img src="img/02-filtros.webp" width="1585" height="138" alt="Barra de filtros con la CDM 04 seleccionada" loading="lazy"></a>
+      <figcaption>Filtros con la CDM 04 (sistema respiratorio) seleccionada.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>CDM:</b> categoría diagnóstica mayor (sistema corporal).</li>
+      <li><span class="mk">B</span> <b>Severidad:</b> 1 menor, 2 moderada, 3 mayor. Junto a ella están <b>Servicio</b> y <b>Tipo de estancia</b> (inlier u outliers).</li>
+      <li><span class="mk">C</span> <b>Desde / Hasta:</b> rango de fechas de egreso.</li>
+      <li><span class="mk">D</span> <b>Limpiar filtros:</b> vuelve a mostrar todos los egresos.</li>
+      <li><span class="mk">E</span> <b>Contador:</b> cuántos egresos quedan después de filtrar.</li>
+    </ul>
+    <p>Los filtros se combinan entre sí y se aplican a la vez en Resumen y en Distribución.</p>
+
+    <h3>4.2 Los indicadores</h3>
+    <figure><a href="img/03-resumen-kpis.webp" target="_blank"><img src="img/03-resumen-kpis.webp" width="1585" height="290" alt="Indicadores del Resumen" loading="lazy"></a>
+      <figcaption>Indicadores con los 80 egresos de ejemplo.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Índice casuístico 1,2966:</b> los pacientes son en promedio un 30 % más complejos que el egreso promedio (peso 1,0).</li>
+      <li><span class="mk">B</span> <b>Resultado <span class="neg">-$21.525.000</span>:</b> el pago GRD total ($311.181.000) no cubre el costo total ($332.706.000). Se recupera el 93,5 % del gasto.</li>
+      <li><span class="mk">C</span> <b>Costo por unidad de peso $3.207.516:</b> supera al precio base de $3.000.000. Es la causa de fondo de la pérdida: cada unidad de peso cuesta más de lo que se paga.</li>
+      <li><span class="mk">D</span> <b>IEMA 1,175:</b> los pacientes se quedan en promedio un 17,5 % más de días que lo esperado según la norma (9,0 días frente a 7,7).</li>
+      <li><span class="mk">E</span> <b>Egresos con pérdida 41:</b> el 51,2 % de los egresos cuesta más de lo que se paga por él.</li>
+    </ul>
+    <p>Los demás indicadores: <b>Egresos</b> (cantidad, y cuántos no tienen su GRD en el catálogo), <b>Pago GRD total</b>, <b>Costo total</b> (con los días cama), <b>Estancia media</b> y <b>Outliers</b> (superiores / inferiores).</p>
+
+    <h3>4.3 Los gráficos</h3>
+    <figure><a href="img/04-resumen-graficos.webp" target="_blank"><img src="img/04-resumen-graficos.webp" width="1593" height="553" alt="Gráfico de dispersión costo vs pago y barras de resultado por CDM" loading="lazy"></a>
+      <figcaption>Gráfico de costo vs. pago (con el detalle de un egreso al pasar el mouse) y resultado por CDM.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Costo vs. pago GRD por episodio.</b> Cada punto es un egreso: eje horizontal = peso, eje vertical = costo. La línea punteada es lo que paga el GRD (precio base × peso). Los <span class="neg">puntos rojos, sobre la línea,</span> son egresos que pierden; los <span class="pos">verdes, bajo la línea,</span> ganan. Pase el mouse sobre un punto para ver su detalle, y haga clic para abrirlo en la pestaña Egresos.</li>
+      <li><span class="mk">B</span> <b>Resultado por CDM.</b> Suma de pago − costo por categoría diagnóstica. En el ejemplo, la CDM 18 (infecciosas) pierde cerca de $11 millones y la CDM 04 (respiratorio) gana $2,3 millones. Haga clic en una barra para filtrar todo el análisis por esa CDM.</li>
+    </ul>
+
+    <h3>4.4 Las tablas</h3>
+    <figure><a href="img/05-resumen-tablas.webp" target="_blank"><img src="img/05-resumen-tablas.webp" width="1593" height="561" alt="Tablas por severidad y GRD con mayor pérdida" loading="lazy"></a>
+      <figcaption>Resultado por nivel de severidad y los GRD con mayor pérdida acumulada.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Por nivel de severidad:</b> compara egresos, peso medio, estancia media, costo por unidad de peso, resultado y % de recuperación de los niveles 1, 2 y 3. Permite ver si los pacientes más graves concentran la pérdida.</li>
+      <li><span class="mk">B</span> <b>GRD con mayor pérdida acumulada:</b> los 10 GRD donde más se pierde. Son los primeros candidatos para revisar costos, protocolos o estadías.</li>
+    </ul>
+    <div class="caja ejercicio"><b class="t">Ejercicio sugerido</b>Con los datos de ejemplo: (1) ¿qué CDM explica la mayor parte de la pérdida? (2) Filtre por esa CDM: ¿cuál es su costo por unidad de peso y su IEMA? (3) ¿El problema parece ser de estadías largas o de costos altos por día?</div>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="distribucion">
+    <h2>5. Distribución: dónde se ubica la institución</h2>
+    <p><b>Para qué sirve:</b> el Resumen entrega promedios; la Distribución muestra <b>cómo se reparten los egresos</b> y <b>en qué rango cae la institución</b> frente a una referencia (por ejemplo, el promedio de su red o de hospitales de la misma complejidad). Permite distinguir un problema generalizado de unos pocos casos extremos.</p>
+
+    <h3>5.1 Elegir qué analizar</h3>
+    <figure><a href="img/06-dist-controles.webp" target="_blank"><img src="img/06-dist-controles.webp" width="1593" height="619" alt="Controles de la pestaña Distribución e indicadores de posición" loading="lazy"></a>
+      <figcaption>Controles de la curva y los indicadores de posición de la institución.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Variable a analizar:</b> costo por unidad de peso, % de recuperación, resultado por egreso, índice de estancia (días ÷ EM de la norma), costo total, costo por día, peso GRD o días de estada.</li>
+      <li><span class="mk">B</span> <b>N° de barras:</b> más barras = más detalle en el histograma.</li>
+      <li><span class="mk">C</span> <b>Agrupar box-plot por:</b> CDM, severidad, servicio, GRD o tipo de estancia (ver 5.4).</li>
+      <li><span class="mk">D</span> <b>Mostrar u ocultar</b> la curva de densidad, las bandas de percentiles y la curva de referencia.</li>
+      <li><span class="mk">E</span> <b>Referencia (media y desviación estándar):</b> los datos del benchmark con que se compara la institución. Puede escribir los de su red.</li>
+      <li><span class="mk">F</span> <b>Valores sugeridos:</b> carga una referencia razonable. Para costo por unidad de peso, la media sugerida es el precio base (el punto de equilibrio). Sólo hay valores sugeridos para costo por unidad de peso, % de recuperación, resultado por egreso e índice de estancia; para las demás variables escriba la media y la desviación estándar de su referencia (si no, la franja compara con sus propios egresos).</li>
+      <li><span class="mk">G</span> <b>Evaluar un valor:</b> mueva el control para marcar un valor y ver en qué percentil queda.</li>
+      <li><span class="mk">H</span> <b>Valor institucional:</b> el valor global de la institución (por ejemplo, costo total ÷ suma de pesos).</li>
+      <li><span class="mk">I</span> <b>Percentil frente a la referencia:</b> P61 significa que la institución supera al 61 % de la referencia.</li>
+    </ul>
+    <p>Los demás indicadores muestran el <b>percentil interno</b> (posición del valor institucional entre sus propios egresos; P61 en el ejemplo), la mediana, el rango intercuartil (P25–P75), la dispersión (coeficiente de variación) y qué porcentaje de egresos queda sobre la línea de referencia (51,2 % en el ejemplo, es decir, 41 egresos en pérdida).</p>
+
+    <h3>5.2 Leer la curva</h3>
+    <figure><a href="img/07-dist-grafico.webp" target="_blank"><img src="img/07-dist-grafico.webp" width="1593" height="1003" alt="Curva de distribución del costo por unidad de peso con la franja de rango" loading="lazy"></a>
+      <figcaption>Curva del costo por unidad de peso: histograma, densidad, referencia, institución, valor evaluado ($3,8 millones) y franja de rango.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Leyenda:</b>
+        <ul>
+          <li>Las <b>barras</b> (histograma) indican cuántos egresos hay en cada rango de valores.</li>
+          <li>La <b>curva roja oscura</b> es la forma de la distribución de la institución.</li>
+          <li>La <b>curva azul punteada</b> es la referencia.</li>
+          <li>La <b>línea roja</b> marca la institución.</li>
+          <li>Las <b>bandas celestes</b> son el 50 % central (P25–P75) y el 80 % central (P10–P90).</li>
+        </ul>
+        Además aparecen la mediana, el precio base (línea punteada negra) y el valor evaluado (línea amarilla).</li>
+      <li><span class="mk">B</span> <b>Franja de rango:</b> ubica a la institución entre <i>Muy bajo</i> y <i>Muy alto</i> respecto de la referencia y da un veredicto en palabras. En el ejemplo: <i>"se ubica en el rango Medio (P25–P75) respecto de la curva de referencia — percentil P61. Posición dentro del rango esperado."</i>. Los colores dependen de la variable: para costos, verde es bajo (favorable) y rojo es alto.</li>
+    </ul>
+    <p><b>Pase el mouse</b> sobre la curva: el recuadro negro indica el percentil de ese valor (por ejemplo, "61 % de los egresos ≤ este valor"), su percentil en la referencia y cuántos egresos hay en esa barra.</p>
+
+    <h3>5.3 Ver los egresos de un rango</h3>
+    <figure><a href="img/08-dist-rango.webp" target="_blank"><img src="img/08-dist-rango.webp" width="1593" height="650" alt="Tabla con los egresos de la barra seleccionada" loading="lazy"></a>
+      <figcaption>Al hacer clic en una barra del histograma se listan sus egresos.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> El título indica el rango seleccionado y cuántos egresos contiene. Con <b>Cerrar</b> se oculta la tabla.</li>
+      <li><span class="mk">B</span> La última columna muestra el valor de la variable analizada para cada egreso. Puede ordenar cualquier columna.</li>
+    </ul>
+
+    <h3>5.4 Comparar grupos (box-plot)</h3>
+    <figure><a href="img/09-dist-boxplot.webp" target="_blank"><img src="img/09-dist-boxplot.webp" width="1585" height="511" alt="Box-plot del costo por unidad de peso por nivel de severidad" loading="lazy"></a>
+      <figcaption>Box-plot del costo por unidad de peso por nivel de severidad. Al pasar el mouse sobre un grupo se muestran n, P25, mediana, P75, media y mínimo–máximo.</figcaption></figure>
+    <p>Cada fila es un grupo:</p>
+    <ul>
+      <li>La <b>caja</b> abarca del P25 al P75 (el 50 % central).</li>
+      <li>La <b>línea negra</b> dentro de la caja es la mediana y el <b>rombo</b> es la media.</li>
+      <li>Los <b>bigotes</b> muestran el rango habitual, y los <b>puntos rojos</b> son valores atípicos.</li>
+      <li>La línea roja vertical es el valor de la institución. La línea punteada negra es la línea de referencia de la variable: el precio base en costo por unidad de peso y la norma 1,0 en índice de estancia (no es la curva azul de referencia de 5.2).</li>
+      <li>Las cajas <span class="neg">rosadas</span> tienen la mediana en el lado desfavorable de esa línea punteada (por ejemplo, costo por unidad de peso sobre el precio base); las <span class="pos">verdes</span>, en el lado favorable.</li>
+    </ul>
+    <p>Un clic en un grupo filtra todo el análisis por él (al agrupar por CDM, severidad, servicio o tipo de estancia; al agrupar por GRD el clic no filtra).</p>
+    <div class="caja ejercicio"><b class="t">Ejercicio sugerido</b>Elija la variable <b>índice de estancia</b>: ¿la institución está sobre o bajo la norma (1,0)? Agrupe por servicio: ¿qué servicio tiene las estadías más largas respecto de su norma?</div>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="simulador">
+    <h2>6. Simulador: calcular un caso rápido</h2>
+    <p><b>Para qué sirve:</b> reproduce el cálculo de la clase para un solo egreso y muestra qué pasa si cambian el precio base o el costo.</p>
+    <figure><a href="img/12-simulador.webp" target="_blank"><img src="img/12-simulador.webp" width="1585" height="930" alt="Simulador con el caso de la clase" loading="lazy"></a>
+      <figcaption>Simulador con el caso de la clase: $3.000.000 × 2,34 = $7.020.000 y resultado $1.520.000.</figcaption></figure>
+    <ol class="pasos">
+      <li><span class="mk">A</span> Escriba el <b>precio base pactado</b>.</li>
+      <li><span class="mk">B</span> (Opcional) Escriba el <b>GRD</b>: se completan el peso y los días según el catálogo.</li>
+      <li><span class="mk">C</span> Confirme o escriba el <b>peso del episodio</b>.</li>
+      <li><span class="mk">D</span> Escriba el <b>costo total asignado</b> y, si quiere, los días de estada.</li>
+      <li><span class="mk">E</span> Marque <b>Aplicar ajustes por outlier</b> si quiere incluir el pago por días adicionales (usa las reglas de la pestaña Parámetros).</li>
+      <li><span class="mk">F</span> Lea el resultado: la fórmula del pago y la tabla con pago, costo, resultado, % de recuperación, costo por unidad de peso y tipo de estancia.</li>
+      <li><span class="mk">G</span> Revise la <b>tabla de sensibilidad</b>: cada celda es el resultado si el precio base (columnas) y el costo (filas) suben o bajan hasta un 20 %. Verde = gana; rojo = pierde.</li>
+    </ol>
+    <p>Arriba de la tabla se indican el <b>precio base de equilibrio</b> (costo ÷ peso), el <b>peso de equilibrio</b> (costo ÷ precio base) y el <b>costo máximo sin pérdida</b>.</p>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="licitacion">
+    <h2>7. Licitación GRD: preparar una oferta por tramos</h2>
+    <p><b>Para qué sirve:</b> analizar una licitación en la que el asegurador compra egresos pagados por GRD con un <b>precio base distinto según el tramo de peso relativo</b>, como en las bases de camas críticas GRD 2018 de FONASA (caso histórico):</p>
+    <div class="tabla"><table>
+      <tr><th>Precio base de referencia</th><th>Peso relativo del egreso</th><th>Rango permitido (2018)</th></tr>
+      <tr><td>Precio base 1</td><td>≤ 1,5</td><td>$1.500.000 – $2.150.000</td></tr>
+      <tr><td>Precio base 2</td><td>&gt; 1,5 y ≤ 2,5</td><td>$2.150.001 – $3.200.000</td></tr>
+      <tr><td>Precio base 3</td><td>&gt; 2,5</td><td>$3.200.001 – $5.000.000</td></tr>
+    </table></div>
+    <p>La oferta económica pesaba un 50 % de la evaluación. Si un precio base ofertado queda fuera de su rango, <b>toda la oferta es inadmisible</b>.</p>
+
+    <h3 id="lic-casos">7.1 Empezar con un caso de ejemplo</h3>
+    <figure><a href="img/13-lic-casos.webp" target="_blank"><img src="img/13-lic-casos.webp" width="1585" height="398" alt="Caso de ejemplo de licitación con relato y preguntas" loading="lazy"></a>
+      <figcaption>Caso "Clínica del Pacífico: el tramo 3 no cubre sus costos", con sus preguntas guía.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Cargar caso:</b> elija uno de los 5 casos de ejemplo (cuatro clínicas ficticias y un paciente con desfibrilador). Se cargan las bases, la oferta, la casuística esperada (en «Ingreso manual por tramo») y un egreso para el simulador. Después de cargarlo, el selector vuelve a «— Elegir un caso —» y el caso cargado queda descrito en el recuadro de abajo.</li>
+      <li><span class="mk">B</span> <b>Preguntas para el alumno:</b> respóndalas usando los resultados de la pantalla.</li>
+    </ul>
+    <div class="tabla"><table>
+      <tr><th>Caso de ejemplo</th><th>Qué enseña</th></tr>
+      <tr><td>Clínica Andina</td><td>Una oferta con margen en los 3 tramos.</td></tr>
+      <tr><td>Clínica del Pacífico</td><td>Un tramo cuyo precio de equilibrio supera el tope: pierde aunque se oferte el máximo.</td></tr>
+      <tr><td>Clínica Cordillera</td><td>Una oferta inadmisible por superar un tope.</td></tr>
+      <tr><td>Clínica Valle Central</td><td>Un precio agresivo: gana puntaje pero pierde dinero.</td></tr>
+      <tr><td>Paciente con desfibrilador</td><td>El efecto del ajuste por tecnología en un egreso.</td></tr>
+    </table></div>
+
+    <h3 id="lic-bases">7.2 Las bases y su oferta</h3>
+    <figure><a href="img/14-lic-bases.webp" target="_blank"><img src="img/14-lic-bases.webp" width="1593" height="529" alt="Bases de la licitación con tramos, topes y oferta" loading="lazy"></a>
+      <figcaption>Bases de camas críticas 2018 con la oferta de la Clínica del Pacífico.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Cargar bases:</b> camas críticas 2018 (histórico), compra a privados 2023 o 2024 (topes según análisis publicados), o personalizada.</li>
+      <li><span class="mk">B</span> <b>Límites de tramo</b> (1,5 y 2,5). Si los edita, las bases pasan a "Personalizada".</li>
+      <li><span class="mk">C</span> <b>Ponderación de la oferta económica</b> (50 % en 2018).</li>
+      <li><span class="mk">D</span> <b>PB mínimo y máximo (tope)</b> de cada tramo. También se pueden editar.</li>
+      <li><span class="mk">E</span> <b>Su oferta:</b> el precio base que ofertaría en cada tramo.</li>
+      <li><span class="mk">F</span> <b>Estado:</b> <span class="pos">Admisible</span> o <span class="neg">Inadmisible</span> (supera el tope o queda bajo el mínimo).</li>
+    </ul>
+    <p>Así se ve una oferta inadmisible (caso Clínica Cordillera):</p>
+    <figure><a href="img/19-lic-inadmisible-bases.webp" target="_blank"><img src="img/19-lic-inadmisible-bases.webp" width="1568" height="230" alt="Oferta del tramo 2 marcada como inadmisible" loading="lazy"></a>
+      <figcaption>La oferta de $3.350.000 en el tramo 2 supera el tope de $3.200.000.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> Oferta del precio base 2: $3.350.000.</li>
+      <li><span class="mk">B</span> Estado: <span class="neg">Inadmisible: supera el tope</span>.</li>
+    </ul>
+    <figure><a href="img/19-lic-inadmisible-evaluacion.webp" target="_blank"><img src="img/19-lic-inadmisible-evaluacion.webp" width="1593" height="379" alt="Evaluación de una oferta inadmisible" loading="lazy"></a>
+      <figcaption>Con una oferta inadmisible no hay puntaje, y el resultado es sólo referencial.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> Veredicto: <b>la oferta es INADMISIBLE</b>, con la explicación.</li>
+      <li><span class="mk">B</span> El resultado esperado se muestra sólo como referencia.</li>
+      <li><span class="mk">C</span> Una oferta inadmisible no recibe puntaje económico.</li>
+    </ul>
+
+    <h3 id="lic-simular">7.3 Simular un egreso y ajustes por tecnología</h3>
+    <figure><a href="img/20-lic-simulador-tecnologia.webp" target="_blank"><img src="img/20-lic-simulador-tecnologia.webp" width="1593" height="944" alt="Simulador de un egreso con ajuste por tecnología y tabla de valores 2018" loading="lazy"></a>
+      <figcaption>Un egreso de peso 2,8 con desfibrilador DDD con resincronización cardíaca.</figcaption></figure>
+    <ol class="pasos">
+      <li><span class="mk">A</span> Escriba el <b>peso relativo</b> del egreso: la aplicación identifica su tramo.</li>
+      <li><span class="mk">B</span> Escriba el <b>costo del egreso</b>.</li>
+      <li><span class="mk">C</span> Si corresponde, elija el <b>ajuste por tecnología</b>.</li>
+      <li><span class="mk">D</span> Lea el resultado:
+        <ul>
+          <li><b>Precio base aplicado:</b> su oferta en el tramo del egreso, o el tope de ese tramo si no ofertó en él o si esa oferta está fuera de rango.</li>
+          <li><b>Valor GRD</b> y <b>ajuste por tecnología</b>.</li>
+          <li><b>Pago total</b> y <b>resultado</b>, con y sin el ajuste. En el ejemplo, el egreso gana $1.523.950 gracias al ajuste; sin él perdería $16.340.000.</li>
+        </ul>
+        Si el peso está cerca de 1,5 o 2,5, aparece además un aviso con el "salto" de pago entre tramos.</li>
+      <li><span class="mk">E</span> Consulte la <b>tabla de ajustes por tecnología</b> de las bases 2018 (punto 9.7): prótesis aórtica, plasmaféresis, sustitución renal continua, desfibriladores y coils cerebrales. Se pagan <b>una sola vez por egreso</b>, además del valor GRD.</li>
+    </ol>
+
+    <h3 id="lic-casuistica">7.4 Casuística y costos esperados</h3>
+    <figure><a href="img/15-lic-casuistica.webp" target="_blank"><img src="img/15-lic-casuistica.webp" width="1585" height="455" alt="Casuística esperada por tramo con precio base de equilibrio y sugerido" loading="lazy"></a>
+      <figcaption>Casuística de la Clínica del Pacífico: en el tramo 3 el equilibrio ($5.600.000) supera el tope.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Fuente de la casuística:</b> los egresos cargados en la aplicación (se clasifican por su peso) o un <b>ingreso manual</b> por tramo (N° de egresos, peso medio y costo medio).</li>
+      <li><span class="mk">B</span> <b>Margen objetivo:</b> cuánto sobre el costo quiere ganar.</li>
+      <li><span class="mk">C</span> <b>PB promedio más bajo esperado de la competencia</b> (opcional): el menor precio base promedio que espera de los otros oferentes. Se usa para estimar el puntaje.</li>
+      <li><span class="mk">D</span> <b>PB de equilibrio</b> = costo total del tramo ÷ suma de pesos del tramo. Si aparece en rojo con "supera el tope", ese tramo pierde aunque se oferte el máximo.</li>
+      <li><span class="mk">E</span> <b>PB sugerido</b> = equilibrio + margen, ajustado al rango de las bases. El botón <b>Usar</b> lo copia como su oferta.</li>
+    </ul>
+
+    <h3 id="lic-evaluacion">7.5 Evaluación de la oferta y curvas</h3>
+    <figure><a href="img/16-lic-evaluacion.webp" target="_blank"><img src="img/16-lic-evaluacion.webp" width="1593" height="374" alt="Evaluación de la oferta con resultado y puntaje" loading="lazy"></a>
+      <figcaption>Evaluación de la oferta de la Clínica del Pacífico.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Veredicto:</b> si la oferta es admisible y su resultado esperado con la casuística.</li>
+      <li><span class="mk">B</span> <b>Resultado esperado</b> total: ingresos con la oferta − costos.</li>
+      <li><span class="mk">C</span> <b>Puntaje económico estimado</b> (sobre 100) y los puntos que aporta según la ponderación. <i>Supuesto de la aplicación:</i> menor precio base promedio de los oferentes ÷ su precio base promedio × 100. Las bases mostradas en clase no incluyen la fórmula: verifíquela en las bases reales.</li>
+      <li><span class="mk">D</span> <b>Con un precio base único:</b> el resultado si todo se pagara con el precio base de la pestaña Parámetros, para comparar con el pago por tramos.</li>
+    </ul>
+    <figure><a href="img/17-lic-curva.webp" target="_blank"><img src="img/17-lic-curva.webp" width="1585" height="925" alt="Curva de pago según el peso relativo con saltos entre tramos" loading="lazy"></a>
+      <figcaption>Curva de pago según el peso relativo: note los saltos en 1,5 y 2,5 y la zona roja del tramo 3.</figcaption></figure>
+    <ul>
+      <li>La <span class="pos">línea verde</span> es lo que se cobraría por un egreso según su peso con la oferta (precio base del tramo × peso).</li>
+      <li>La <span class="neg">línea roja</span> es el costo esperado.</li>
+      <li>La línea gris punteada es el máximo permitido por las bases.</li>
+      <li>Zona verde = ganancia; zona roja = pérdida.</li>
+    </ul>
+    <p>Los <b>saltos</b> muestran que un egreso de peso 1,51 se paga con el precio base 2 y uno de 1,50 con el precio base 1. Esto crea incentivos a sobrecodificar, y por eso FONASA audita la codificación.</p>
+    <figure><a href="img/18-lic-tramos.webp" target="_blank"><img src="img/18-lic-tramos.webp" width="1585" height="576" alt="Resultado por tramo y distribución de egresos por peso" loading="lazy"></a>
+      <figcaption>Resultado esperado por tramo y cantidad de egresos por tramo.</figcaption></figure>
+    <p>El gráfico de la izquierda muestra qué tramo gana y cuál pierde. El de la derecha muestra cuántos egresos hay en cada tramo: los tramos con más egresos pesan más en el resultado total.</p>
+
+    <h3>7.6 Guía para analizar una licitación</h3>
+    <figure class="angosta"><a href="img/21-lic-guia.webp" target="_blank"><img src="img/21-lic-guia.webp" width="1150" height="875" alt="Guía paso a paso para analizar una licitación GRD" loading="lazy"></a>
+      <figcaption>Al final de la pestaña hay una guía con los pasos del análisis.</figcaption></figure>
+    <div class="caja ejercicio"><b class="t">Ejercicio sugerido</b>Cargue la <b>Clínica Valle Central</b>. (1) ¿Qué puntaje obtiene? (2) ¿Cuánto pierde? (3) Use los botones <b>Usar</b> para ofertar el PB sugerido: ¿sigue siendo admisible? ¿cuánto baja el puntaje y cuánto mejora el resultado? Discuta el equilibrio entre ganar la licitación y no perder dinero.</div>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="caso">
+    <h2>8. Modo alumno · Analizar un caso clínico</h2>
+    <p><b>Para qué sirve:</b> el alumno recibe un caso de una clínica, ingresa sus datos y la aplicación genera el <b>resumen, las curvas de ganancia o pérdida y una explicación paso a paso</b> escrita para aprender.</p>
+
+    <h3>8.1 Ingresar los datos del caso</h3>
+    <figure><a href="img/22-caso-formulario.webp" target="_blank"><img src="img/22-caso-formulario.webp" width="1593" height="1170" alt="Formulario de datos del caso clínico" loading="lazy"></a>
+      <figcaption>Datos del caso de la clase (Paciente A, septicemia).</figcaption></figure>
+    <ol class="pasos">
+      <li><span class="mk">A</span> En la pestaña <b>Modo alumno</b>, elija la subpestaña <b>1 · Analizar un caso clínico</b>.</li>
+      <li><span class="mk">B</span> Para empezar, cargue un <b>caso de ejemplo</b>: septicemia (gana), neumonía complicada (outlier), cesárea (margen estrecho), cadera (prótesis cara), apendicectomía (gana) o aneurisma con coils (licitación, tramo 3).</li>
+      <li><span class="mk">C</span> Escriba el <b>código IR-GRD</b>: si está en el catálogo se completan el diagnóstico, el peso, la EM, el PCI, el PCS y el P50.</li>
+      <li><span class="mk">D</span> Escriba el <b>precio base</b> pactado y confirme el <b>peso</b>.</li>
+      <li><span class="mk">E</span> Escriba los <b>días de estada</b> (y, si no se completaron, EM, PCI, PCS y P50).</li>
+      <li><span class="mk">F</span> Opciones:
+        <ul>
+          <li><b>Usar el precio base del tramo</b> según la pestaña Licitación GRD.</li>
+          <li><b>Aplicar el pago adicional por outlier superior.</b></li>
+        </ul></li>
+      <li><span class="mk">G</span> Escriba los <b>costos</b> con su desglose: día cama (por día), pabellón, medicamentos, insumos y prótesis, exámenes, honorarios y otros.</li>
+      <li><span class="mk">H</span> …o, si no tiene el desglose, sólo el <b>costo total</b>.</li>
+      <li><span class="mk">I</span> (Opcional) Marque los <b>ajustes por tecnología</b> de las bases 2018 que correspondan.</li>
+      <li><span class="mk">J</span> El análisis se actualiza solo mientras escribe. Con <b>Practicar los cálculos de este caso</b> se crea un ejercicio con estos mismos datos (capítulo 9). Los botones <b>Imprimir informe</b> y <b>Limpiar datos</b> están al lado.</li>
+    </ol>
+
+    <h3>8.2 El resultado y la explicación</h3>
+    <figure><a href="img/23-caso-resultado.webp" target="_blank"><img src="img/23-caso-resultado.webp" width="1593" height="1383" alt="Veredicto, resumen del caso y explicación paso a paso" loading="lazy"></a>
+      <figcaption>Veredicto, tabla resumen y explicación paso a paso del caso de la clase.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Veredicto:</b> "La clínica <span class="pos">GANA $1.520.000</span> con este paciente" (o PIERDE, o QUEDA EN EQUILIBRIO).</li>
+      <li><span class="mk">B</span> <b>Fórmula</b> del pago, costo y % de recuperación, como en la lámina de clases.</li>
+      <li><span class="mk">C</span> <b>Resumen del caso:</b> precio base, peso, pago, el desglose de costos, resultado, recuperación, costo por unidad de peso, días, tipo de estancia y <b>días máximos sin pérdida</b>.</li>
+      <li><span class="mk">D</span> <b>Explicación paso a paso:</b> ¿cuánto recibe la clínica?, ¿cuánto le costó?, ¿gana o pierde?, costo por unidad de peso, estadía, hasta cuántos días se puede hospitalizar sin perder y qué tendría que cambiar (o cuánto margen hay).</li>
+    </ul>
+
+    <h3>8.3 Los gráficos del caso</h3>
+    <figure><a href="img/24-caso-pago-costo.webp" target="_blank"><img src="img/24-caso-pago-costo.webp" width="1585" height="839" alt="Barras de pago GRD vs costo con composición del costo" loading="lazy"></a>
+      <figcaption>¿El pago GRD alcanza para cubrir el costo?</figcaption></figure>
+    <p>La barra verde es el pago y la roja el costo, separado por tipo (pase el mouse sobre cada parte). A la derecha se indica la <b>ganancia o pérdida</b> y la composición del costo en porcentajes.</p>
+    <figure><a href="img/25-caso-curva-dias.webp" target="_blank"><img src="img/25-caso-curva-dias.webp" width="1585" height="949" alt="Curva de ganancia o pérdida según días de estada" loading="lazy"></a>
+      <figcaption>Curva según los días de estada (caso de la neumonía complicada, con pago por outlier).</figcaption></figure>
+    <ul>
+      <li>La <span class="pos">línea verde</span> es el pago GRD. Es <b>plana</b> porque el asegurador paga lo mismo sin importar los días; sólo sube después de PCS + P50 si se aplica el pago por outlier.</li>
+      <li>La <span class="neg">línea roja</span> es el costo, que <b>sube con cada día</b>.</li>
+      <li>Donde se cruzan por primera vez está el <b>día de equilibrio</b> (línea amarilla): desde ahí la clínica pierde. Si se aplica el pago por outlier, la línea verde puede volver a superar a la roja más adelante, cuando el pago adicional acumulado alcanza al costo (línea verde «Vuelve a ganar» en la imagen).</li>
+      <li>El punto negro es el paciente, y las líneas verticales marcan PCI, EM, PCS y PCS + P50.</li>
+    </ul>
+    <p>Pase el mouse para ver el resultado día a día.</p>
+    <figure><a href="img/26-caso-precio-base-y-distribucion.webp" target="_blank"><img src="img/26-caso-precio-base-y-distribucion.webp" width="1585" height="623" alt="Curva de resultado según el precio base y posición del caso" loading="lazy"></a>
+      <figcaption>Resultado según el precio base y posición del caso frente a los egresos cargados.</figcaption></figure>
+    <p><b>Izquierda:</b> cuánto ganaría o perdería la clínica con este mismo paciente con otro precio base. Donde la línea cruza el cero está el <b>precio base de equilibrio</b>.</p>
+    <p><b>Derecha:</b> el costo por unidad de peso del caso (línea roja) frente a los egresos cargados. Indica qué porcentaje de egresos es más barato que este caso.</p>
+    <figure><a href="img/27-caso-aprendizajes.webp" target="_blank"><img src="img/27-caso-aprendizajes.webp" width="1585" height="273" alt="Lo que aprendemos de este caso" loading="lazy"></a>
+      <figcaption>Conclusiones del caso, generadas según sus resultados.</figcaption></figure>
+
+    <h3>8.4 Caso con precio base por tramo y ajuste por tecnología</h3>
+    <figure><a href="img/28-caso-tramo-tecnologia.webp" target="_blank"><img src="img/28-caso-tramo-tecnologia.webp" width="1593" height="1709" alt="Caso con aneurisma y coils usando el precio base del tramo 3" loading="lazy"></a>
+      <figcaption>Caso F (aneurisma con coils): precio base del tramo 3 y ajuste por tecnología. La captura se tomó con el caso de licitación «Paciente con desfibrilador» cargado en Licitación GRD (oferta del tramo 3: $4.700.000). Si en Licitación no hay oferta en el tramo 3, se usa el tope de $5.000.000 y la clínica pierde $4.115.600; con otra oferta, el resultado cambia.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> La fórmula muestra el valor GRD y el <b>pago total</b>, que suma el <b>ajuste por tecnología</b> (coils: $3.284.400).</li>
+      <li><span class="mk">B</span> El precio base se toma del <b>tramo de peso</b> (peso 3,2 → tramo 3) de la pestaña Licitación: su oferta en ese tramo, o el tope del tramo si no ofertó en él o si esa oferta está fuera de rango. Mientras esta opción está marcada, el campo Precio base queda bloqueado (en gris) y muestra ese valor.</li>
+      <li><span class="mk">C</span> <b>Pago total</b> = valor GRD + ajuste por tecnología (la fila anterior detalla el ajuste). Aun así, en este caso la clínica pierde, porque el costo supera al pago total.</li>
+    </ul>
+    <div class="caja consejo"><b class="t">Imprimir o entregar el análisis</b>El botón <b>Imprimir informe</b> genera una versión para papel o PDF (elija "Guardar como PDF" en la ventana de impresión), sin menús ni formularios.</div>
+    <figure class="movil"><a href="img/37-movil.webp" target="_blank"><img src="img/37-movil.webp" width="840" height="3000" alt="La aplicación en un celular" loading="lazy"></a>
+      <figcaption>En el celular la aplicación se adapta a una columna y los gráficos anchos se desplazan de lado. La barra roja de pestañas muestra sólo las primeras: deslícela con el dedo hacia la izquierda para llegar a Licitación GRD, Modo alumno, Catálogo GRD, Parámetros, Guía GRD y Manual de ayuda.</figcaption></figure>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="practica">
+    <h2>9. Modo alumno · Practicar cálculos</h2>
+    <p><b>Para qué sirve:</b> ejercicios en los que <b>el alumno hace los cálculos</b> y la aplicación los corrige, da pistas, detecta errores típicos, muestra la solución paso a paso y registra una nota.</p>
+
+    <h3>9.1 Elegir un ejercicio</h3>
+    <figure><a href="img/29-practica-barra.webp" target="_blank"><img src="img/29-practica-barra.webp" width="1585" height="284" alt="Barra del alumno con nombre, nivel, botones y puntaje" loading="lazy"></a>
+      <figcaption>Barra de la práctica con el alumno de ejemplo y su puntaje acumulado.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Nombre del alumno:</b> queda registrado en el historial.</li>
+      <li><span class="mk">B</span> <b>Nivel</b> (ver tabla abajo).</li>
+      <li><span class="mk">C</span> <b>Nuevo ejercicio aleatorio</b> del nivel elegido.</li>
+      <li><span class="mk">D</span> <b>Ingresar mis propios datos:</b> para resolver un caso dictado por el docente (ver 9.4).</li>
+      <li><span class="mk">E</span> <b>Código de ejercicio:</b> cada ejercicio tiene un código (por ejemplo, <code>N3-10011</code>). Si el docente entrega un código, todos los alumnos resuelven <b>el mismo caso</b>: escríbalo y presione <b>Cargar</b>.</li>
+      <li><span class="mk">F</span> <b>Puntaje:</b> ejercicios revisados, promedio de aciertos, nota promedio y ejercicios perfectos del alumno.</li>
+    </ul>
+    <div class="tabla"><table>
+      <tr><th>Nivel</th><th>Qué se calcula</th></tr>
+      <tr><td>1 · Pago y resultado</td><td>Pago = precio base × peso; resultado = pago − costo (como la lámina de clases).</td></tr>
+      <tr><td>2 · Indicadores</td><td>Además: % de recuperación, costo por unidad de peso, peso de equilibrio y si gana o pierde.</td></tr>
+      <tr><td>3 · Estancia y outliers</td><td>Severidad, pago base, tipo de estancia, días adicionales, valor día, pago adicional, pago total y resultado.</td></tr>
+      <tr><td>4 · Casuística</td><td>Con varios egresos: suma de pesos, índice casuístico, pago, costo y resultado totales, costo por unidad de peso, IEMA y si las estancias superan la norma.</td></tr>
+    </table></div>
+
+    <h3>9.2 Resolver y revisar</h3>
+    <figure><a href="img/30-practica-ejercicio.webp" target="_blank"><img src="img/30-practica-ejercicio.webp" width="1595" height="1620" alt="Ejercicio de nivel 3 con respuestas corregidas" loading="lazy"></a>
+      <figcaption>Ejercicio de nivel 3 revisado, con aciertos, errores típicos detectados y una pista abierta.</figcaption></figure>
+    <ol class="pasos">
+      <li><span class="mk">A</span> Lea el <b>enunciado</b>: la tabla con los datos del caso, con el mismo formato de la lámina de clases.</li>
+      <li><span class="mk">B</span> Lea las <b>reglas del ejercicio</b> (en el nivel 3, cómo se paga un outlier).</li>
+      <li>Escriba cada respuesta en su casilla. Bajo cada una aparece "Se leerá como…" para confirmar el número. Con <b>Enter</b> pasa a la siguiente.</li>
+      <li><span class="mk">D</span> Si no sabe cómo seguir, presione <b>Pista</b> junto a la pregunta: aparece una ayuda en amarillo.</li>
+      <li><span class="mk">F</span> Presione <b>Revisar respuestas</b>.</li>
+      <li><span class="mk">C</span> Las respuestas correctas se marcan con <span class="pos">✔</span> y fondo verde.</li>
+      <li><span class="mk">E</span> Las incorrectas se marcan con <span class="neg">✘</span> y, si el error es típico, se explica. En la imagen:
+        <ul>
+          <li>La pregunta 4 dice "Le faltó descontar el período de carencia (P50 del GRD)".</li>
+          <li>La pregunta 7 quedó sin respuesta.</li>
+          <li>La pregunta 8 dice "Revise el signo: resultado = pago − costo".</li>
+        </ul></li>
+      <li><span class="mk">H</span> Lea el <b>resultado</b>: correctas, porcentaje, nota y número de intento. Corrija y vuelva a revisar las veces que quiera.</li>
+      <li><span class="mk">G</span> Si se rinde, presione <b>Ver solución paso a paso</b>: se muestran la respuesta correcta de cada pregunta y el desarrollo completo.</li>
+    </ol>
+    <div class="caja importante"><b class="t">Cómo se calcula la nota</b>Escala chilena de 1,0 a 7,0 con 60 % de exigencia: 60 % de respuestas correctas = 4,0. En el historial queda la nota del <b>primer intento</b>, junto con el número de intentos y si se consultó la solución.</div>
+
+    <h3>9.3 Solución e historial</h3>
+    <figure><a href="img/31-practica-solucion.webp" target="_blank"><img src="img/31-practica-solucion.webp" width="1585" height="466" alt="Solución paso a paso del ejercicio" loading="lazy"></a>
+      <figcaption>Solución paso a paso: fórmula, cálculo con los datos y resultado de cada paso.</figcaption></figure>
+    <figure><a href="img/32-practica-historial.webp" target="_blank"><img src="img/32-practica-historial.webp" width="1585" height="354" alt="Historial de ejercicios con notas" loading="lazy"></a>
+      <figcaption>Historial de ejercicios del alumno de ejemplo.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Exportar resultados (CSV):</b> descarga el historial (fecha, alumno, código, nivel, correctas, porcentaje, nota, intentos y si vio la solución). El alumno puede enviarlo al docente.</li>
+      <li><span class="mk">B</span> <b>Nota</b> de cada ejercicio: en verde si es 4,0 o más.</li>
+    </ul>
+
+    <h3>9.4 Resolver un caso con datos propios</h3>
+    <figure><a href="img/33-practica-datos-propios.webp" target="_blank"><img src="img/33-practica-datos-propios.webp" width="1585" height="580" alt="Formulario para crear un ejercicio de nivel 4 con datos propios" loading="lazy"></a>
+      <figcaption>Formulario de datos propios para un ejercicio de nivel 4 (varios egresos).</figcaption></figure>
+    <ol class="pasos">
+      <li>Elija el <b>nivel</b> y presione <b>Ingresar mis propios datos</b>.</li>
+      <li><span class="mk">A</span> Escriba el <b>precio base</b> y los demás datos que pida el nivel.</li>
+      <li><span class="mk">B</span> En el nivel 4, complete una fila por egreso: GRD (opcional; si está en el catálogo completa peso y EM), peso, días, EM norma y costo.</li>
+      <li><span class="mk">C</span> Agregue filas con <b>+ Agregar egreso</b> (mínimo 2 egresos) o quítelas con ✕.</li>
+      <li><span class="mk">D</span> Presione <b>Crear ejercicio con estos datos</b> y resuélvalo como cualquier otro.</li>
+    </ol>
+    <div class="caja consejo"><b class="t">Para el docente</b>
+      <ul>
+        <li>Entregue un <b>código de ejercicio</b> para que todos resuelvan el mismo caso.</li>
+        <li>Pida el <b>CSV del historial</b> para revisar notas e intentos.</li>
+        <li>Desde el análisis de un caso (capítulo 8), el botón <b>Practicar los cálculos de este caso</b> convierte cualquier caso en ejercicio.</li>
+      </ul></div>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="catalogo">
+    <h2>10. Catálogo GRD</h2>
+    <p><b>Para qué sirve:</b> contiene, para cada GRD, su peso relativo, estancia media de la norma, puntos de corte (PCI, PCS) y P50. La aplicación los usa para calcular el pago y clasificar la estadía de cada egreso.</p>
+    <figure><a href="img/34-catalogo.webp" target="_blank"><img src="img/34-catalogo.webp" width="1593" height="950" alt="Catálogo GRD con aviso, formulario y tabla" loading="lazy"></a>
+      <figcaption>Catálogo de 27 GRD ilustrativos que trae la aplicación.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Importar norma (CSV):</b> cargue la norma IR-GRD vigente con las columnas <code>codigo;descripcion;peso;em_norma;pci;pcs;p50</code>. Junto a este botón están <b>Exportar CSV</b> y <b>Restaurar ejemplo</b>.</li>
+      <li><span class="mk">B</span> <b>Aviso:</b> los pesos de ejemplo son ilustrativos.</li>
+      <li><span class="mk">C</span> <b>Agregar o actualizar</b> un GRD a mano (si el código ya existe, se reemplaza).</li>
+      <li><span class="mk">D</span> <b>Buscador</b> por código o descripción. Cada fila tiene botones para editar o borrar.</li>
+    </ul>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="parametros">
+    <h2>11. Parámetros y respaldo</h2>
+    <figure><a href="img/35-parametros.webp" target="_blank"><img src="img/35-parametros.webp" width="1593" height="576" alt="Parámetros de pago y respaldo" loading="lazy"></a>
+      <figcaption>Parámetros de pago y respaldo de los datos.</figcaption></figure>
+    <ul class="marcas">
+      <li><span class="mk">A</span> <b>Precio base:</b> el que usan Resumen, Distribución, Egresos y la comparación "precio base único" de Licitación.</li>
+      <li><span class="mk">B</span> <b>Aplicar ajustes por outliers:</b> si está desmarcado, pago = precio base × peso, sin ajustes (como en el ejercicio de la lámina).</li>
+      <li><span class="mk">C</span> <b>Días de carencia</b> del outlier superior: el P50 del GRD o ninguno.</li>
+      <li><span class="mk">D</span> <b>Valor del día adicional:</b> (precio base × peso) ÷ EM de la norma, o un monto fijo. Hay además un factor para ese valor y un factor para los outliers inferiores.</li>
+      <li><span class="mk">E</span> <b>Guardar parámetros:</b> los cambios se aplican al presionar este botón.</li>
+      <li><span class="mk">F</span> <b>Descargar respaldo completo (JSON):</b> guarda en un archivo todos sus datos: egresos, catálogo, parámetros, la pestaña Licitación GRD, el caso clínico y el historial del Modo alumno.</li>
+      <li><span class="mk">G</span> <b>Restaurar respaldo:</b> carga un respaldo, por ejemplo en otro computador. La aplicación se recarga sola para mostrar los datos restaurados.</li>
+    </ul>
+    <div class="caja importante"><b class="t">Importante</b>Las reglas reales de outlier dependen de la norma técnica y del convenio. Por ejemplo, en las bases de compra a privados 2024 el día adicional se paga con precio base 1 × peso ÷ días del percentil 75, después de la carencia PCS + P50. Ajuste estos parámetros según el convenio que analice.</div>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="guia">
+    <h2>12. Guía GRD</h2>
+    <figure class="angosta"><a href="img/36-guia.webp" target="_blank"><img src="img/36-guia.webp" width="1150" height="1125" alt="Pestaña Guía GRD" loading="lazy"></a>
+      <figcaption>La pestaña Guía GRD resume el sistema dentro de la aplicación.</figcaption></figure>
+    <p>Explica qué es el sistema GRD, la fórmula de pago con el ejemplo de la clase, la estructura del código IR-GRD, los outliers, los indicadores que calcula la aplicación, cómo leer la pestaña Distribución y las fuentes de datos reales. Es un buen punto de partida antes de usar los demás módulos.</p>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="faq">
+    <h2>13. Preguntas frecuentes</h2>
+    <details><summary>Cerré la aplicación y mis datos no aparecen.</summary>
+      <p>Los datos quedan en el navegador donde se ingresaron. Ábrala con el mismo navegador y el mismo usuario del computador. Para cambiar de equipo o navegador, use <b>Parámetros › Descargar respaldo completo</b> y luego <b>Restaurar respaldo</b> en el otro: el respaldo incluye todos los módulos, también el historial del Modo alumno. Para entregar las notas al docente, use <b>Exportar resultados (CSV)</b>.</p></details>
+    <details><summary>La aplicación marca mi respuesta como incorrecta aunque creo que está bien.</summary>
+      <p>Revise la línea "Se leerá como…" bajo su respuesta: confirme que el número se interpretó bien (miles con punto y decimales con coma). Los montos van sin decimales y, si hay pérdida, con signo menos. El % de recuperación se pide con 1 decimal (por ejemplo, 127,6).</p></details>
+    <details><summary>Un GRD de mis datos dice "no está en catálogo".</summary>
+      <p>Agréguelo en <b>Catálogo GRD</b> (o importe la norma completa) o indique su peso en la columna <code>peso</code> del CSV o en el campo "Peso manual" del formulario.</p></details>
+    <details><summary>¿Los pesos, precios y casos son oficiales?</summary>
+      <p>No. Son ilustrativos para aprender. Las bases de camas críticas 2018 son un caso histórico. Los topes 2023 y 2024 provienen de análisis publicados de esas bases. Para decisiones reales use la normativa y las bases vigentes.</p></details>
+    <details><summary>¿Cómo vuelvo a los datos de ejemplo?</summary>
+      <p>En <b>Egresos</b>, presione <b>Cargar datos de ejemplo</b>. En <b>Catálogo GRD</b>, <b>Restaurar ejemplo</b>. En el Modo alumno, <b>Borrar historial</b> (con doble clic) reinicia las notas.</p></details>
+    <details><summary>En el celular los gráficos se ven cortados.</summary>
+      <p>En pantallas angostas los gráficos mantienen un ancho legible y se desplazan de lado dentro de su tarjeta: deslice el gráfico con el dedo. La barra de pestañas también se desliza de lado para ver todas las pestañas.</p></details>
+    <details><summary>¿Cómo entrego un análisis al docente?</summary>
+      <p>Desde <b>Modo alumno › Analizar un caso</b> use <b>Imprimir informe</b> y elija "Guardar como PDF". Para los ejercicios, exporte el historial en CSV.</p></details>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <!-- =============================================================== -->
+  <section class="cap" id="glosario">
+    <h2>14. Glosario</h2>
+    <dl class="glosario">
+      <dt>Ajuste por tecnología</dt><dd>Pago adicional al valor GRD, una vez por egreso, por prestaciones de alto costo definidas en las bases (en 2018: prótesis aórtica, plasmaféresis, sustitución renal continua, desfibriladores y coils cerebrales).</dd>
+      <dt>Box-plot</dt><dd>Gráfico que muestra el rango de un grupo: caja del P25 al P75, mediana, media y valores atípicos.</dd>
+      <dt>CDM</dt><dd>Categoría Diagnóstica Mayor: agrupa los GRD por sistema corporal (dos primeros dígitos del código IR-GRD).</dd>
+      <dt>Costo por unidad de peso</dt><dd>Costo ÷ peso. Es el precio base con el que un egreso o una institución quedaría en equilibrio.</dd>
+      <dt>EM (estancia media) de la norma</dt><dd>Días promedio de estadía esperados para un GRD.</dd>
+      <dt>Egreso</dt><dd>Alta de un paciente hospitalizado; es la unidad que se paga por GRD.</dd>
+      <dt>IEMA</dt><dd>Índice de Estancia Media Ajustada: estancia media observada ÷ estancia media esperada según la casuística.</dd>
+      <dt>Índice casuístico</dt><dd>Peso promedio de los egresos; mide la complejidad de la casuística (1,0 = promedio).</dd>
+      <dt>Inadmisible</dt><dd>Oferta que queda fuera de proceso porque algún precio base está fuera del rango de las bases.</dd>
+      <dt>Inlier / outlier</dt><dd>Egreso con estadía dentro de los puntos de corte (inlier), sobre el PCS (outlier superior) o bajo el PCI (outlier inferior).</dd>
+      <dt>IR-GRD</dt><dd>Versión de GRD (Internacional Refinado) usada en Chile. Código de 6 dígitos: CDM, tipo, GRD y severidad.</dd>
+      <dt>P50 / período de carencia</dt><dd>Mediana de estadía del GRD. En outliers superiores, los días adicionales se pagan después de PCS + P50.</dd>
+      <dt>Percentil</dt><dd>Posición de un valor en una distribución: P61 = supera al 61 % de los valores.</dd>
+      <dt>Peso relativo</dt><dd>Costo esperado de un GRD respecto del egreso promedio (peso 1,0).</dd>
+      <dt>Precio base</dt><dd>Valor monetario de un egreso de peso 1,0; en una licitación por tramos hay un precio base por tramo de peso.</dd>
+      <dt>Puntos de corte (PCI / PCS)</dt><dd>Límites inferior y superior de días de estadía de un GRD.</dd>
+      <dt>% de recuperación</dt><dd>Pago ÷ costo × 100: qué parte del gasto cubre el pago.</dd>
+      <dt>Resultado</dt><dd>Pago − costo. Positivo = ganancia; negativo = pérdida.</dd>
+      <dt>Severidad</dt><dd>Nivel de gravedad del GRD (último dígito): 1 menor, 2 moderada, 3 mayor.</dd>
+    </dl>
+    <p class="volver"><a href="#como-usar">↑ volver arriba</a></p>
+  </section>
+
+  <footer>Manual de uso · Análisis de egresos GRD · Herramienta docente para alumnos del Magíster · Sistema de Salud · UANDES.<br>
+  Capturas tomadas con los datos de ejemplo de la aplicación. Datos ficticios e ilustrativos con fines docentes.</footer>
+  </main>
+</div>
+<script>addEventListener('beforeprint', () => document.querySelectorAll('details').forEach(d => d.open = true));</script>
+</body>
+</html>

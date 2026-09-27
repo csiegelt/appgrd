@@ -10,3 +10,9 @@ desktop.ini
 respaldo_grd_*.json
 egresos_grd.csv
 datos/
+
+# Herramientas para regenerar las capturas del manual
+node_modules/
+package-lock.json
+package.json
+manual/perfil-*/

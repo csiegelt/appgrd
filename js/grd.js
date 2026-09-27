@@ -22,7 +22,7 @@ const GRD = (() => {
       valido: true,
       cdm: c.slice(0, 2),
       tipo: t === '1' ? 'Quirúrgico' : t === '4' ? 'Médico' : 'Otro (' + t + ')',
-      grd: c.slice(3, 5),
+      grupo: c.slice(3, 5),   // número del GRD dentro de la CDM (no pisa el código completo `grd` del egreso)
       sev: c[5]
     };
   }
@@ -103,13 +103,15 @@ const GRD = (() => {
   }
 
   // ---- CSV ----
-  function parseNumber(s) {
+  // tipo 'money': un solo punto seguido de 3 dígitos es separador de miles ("850.000" -> 850000).
+  function parseNumber(s, tipo) {
     if (s == null) return null;
     let t = String(s).trim().replace(/\$|\s/g, '');
     if (t === '') return null;
     // "1.234.567,89" -> 1234567.89 ; "1234.5" -> 1234.5 ; "2,34" -> 2.34
     if (t.includes(',') ) t = t.replace(/\./g, '').replace(',', '.');
     else if ((t.match(/\./g) || []).length > 1) t = t.replace(/\./g, '');
+    else if (tipo === 'money' && /^-?\d{1,3}\.\d{3}$/.test(t)) t = t.replace('.', '');
     const v = Number(t);
     return isNaN(v) ? null : v;
   }

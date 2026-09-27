@@ -3,6 +3,10 @@
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const numOrNull = v => (v === '' || v == null || isNaN(Number(v))) ? null : Number(v);
+// Campos numéricos en formato chileno: "3.000.000" (montos), "2,34" (decimales). tipo: 'money' | 'decimal' | 'int'
+const numIn = (id, tipo = 'decimal') => Alumno.parseEntrada($(id).value, tipo);
+const fmtIn = (v, tipo = 'decimal') => v == null || v === '' || isNaN(v) ? '' :
+  new Intl.NumberFormat('es-CL', { maximumFractionDigits: tipo === 'decimal' ? 4 : 0 }).format(v);
 
 const LS_KEY = 'grd-app-v1';
 const DEFAULT_PARAMS = {
@@ -58,8 +62,14 @@ function readFile(input, cb) {
   const f = input.files[0];
   if (!f) return;
   const rd = new FileReader();
-  rd.onload = () => { cb(rd.result); input.value = ''; };
-  rd.readAsText(f, 'UTF-8');
+  // UTF-8 si es válido; si no (CSV "normal" de Excel en Windows), windows-1252 para no perder los tildes.
+  rd.onload = () => {
+    let txt;
+    try { txt = new TextDecoder('utf-8', { fatal: true }).decode(rd.result); }
+    catch (e) { txt = new TextDecoder('windows-1252').decode(rd.result); }
+    cb(txt); input.value = '';
+  };
+  rd.readAsArrayBuffer(f);
 }
 const pick = (o, keys) => { for (const k of keys) if (o[k] != null && o[k] !== '') return o[k]; return null; };
 
@@ -113,7 +123,8 @@ function render() {
   refreshFilterOptions();
   ({
     dashboard: renderDashboard, distribucion: renderDistribucion, egresos: renderEgresos,
-    simulador: renderSim, licitacion: Licitacion.render, alumno: Alumno.render, catalogo: renderCatalogo, parametros: renderParams, guia: () => {}
+    // el precio base por defecto se carga sólo al abrir la pestaña (no mientras el alumno borra el campo para escribir)
+    simulador: () => { if ($('s-pb').value === '') $('s-pb').value = fmtIn(state.params.precioBase, 'money'); renderSim(); }, licitacion: Licitacion.render, alumno: Alumno.render, catalogo: renderCatalogo, parametros: renderParams, guia: () => {}
   })[currentTab]();
 }
 
@@ -287,8 +298,9 @@ function renderDistribucion() {
   const benchOn = $('d-bench-on').checked && bench && bench.sd > 0;
   const fmt = M.fmt, fs = M.short;
 
-  setInput('d-bmean', bench ? bench.mean : '');
-  setInput('d-bsd', bench ? bench.sd : '');
+  const tipoRef = M.fmt === GRD.clp ? 'money' : 'decimal';
+  setInput('d-bmean', bench ? fmtIn(bench.mean, tipoRef) : '');
+  setInput('d-bsd', bench ? fmtIn(bench.sd, tipoRef) : '');
   $('d-bench-hint').textContent = M.benchHint;
   $('d-title').textContent = 'Curva de distribución · ' + M.label;
 
@@ -446,8 +458,8 @@ function renderEgresos() {
 function formEgreso() {
   return {
     id: $('e-id').value.trim(), fecha: $('e-fecha').value, grd: $('e-grd').value.trim(),
-    servicio: $('e-serv').value.trim(), dias: numOrNull($('e-dias').value),
-    costo: numOrNull($('e-costo').value), peso: numOrNull($('e-peso').value)
+    servicio: $('e-serv').value.trim(), dias: numIn('e-dias', 'int'),
+    costo: numIn('e-costo', 'money'), peso: numIn('e-peso', 'decimal')
   };
 }
 function previewEgreso() {
@@ -476,7 +488,7 @@ function importEgresos(text) {
       grd: String(grd).padStart(6, '0'),
       servicio: pick(o, ['servicio', 'servicio_egreso', 'unidad']) || '',
       dias: GRD.parseNumber(pick(o, ['dias_estada', 'dias', 'estancia', 'estada', 'los'])),
-      costo: GRD.parseNumber(pick(o, ['costo', 'costo_total', 'costo_total_asignado'])),
+      costo: GRD.parseNumber(pick(o, ['costo', 'costo_total', 'costo_total_asignado']), 'money'),
       peso: GRD.parseNumber(pick(o, ['peso', 'peso_grd', 'peso_relativo']))
     };
     if (idx.has(e.id)) state.egresos[idx.get(e.id)] = e;
@@ -494,11 +506,10 @@ function normFecha(s) {
 
 // ================= SIMULADOR =================
 function renderSim() {
-  if ($('s-pb').value === '') $('s-pb').value = state.params.precioBase;
-  const pb = numOrNull($('s-pb').value) || 0;
-  const peso = numOrNull($('s-peso').value) || 0;
-  const costo = numOrNull($('s-costo').value);
-  const dias = numOrNull($('s-dias').value);
+  const pb = numIn('s-pb', 'money') || 0;
+  const peso = numIn('s-peso', 'decimal') || 0;
+  const costo = numIn('s-costo', 'money');
+  const dias = numIn('s-dias', 'int');
   const cat = catMap.get($('s-grd').value.trim());
   const params = { ...state.params, precioBase: pb, ajustes: $('s-ajustes').checked };
   const r = GRD.calcular({ grd: $('s-grd').value.trim(), dias, costo, peso }, cat, params);
@@ -582,9 +593,9 @@ function importCatalogo(text) {
 // ================= PARÁMETROS =================
 function renderParams() {
   const p = state.params;
-  $('p-pb').value = p.precioBase; $('p-nombre').value = p.nombre; $('p-ajustes').checked = p.ajustes;
-  $('p-carencia').value = p.carencia; $('p-valordia').value = p.valorDia; $('p-diafijo').value = p.diaFijo;
-  $('p-factordia').value = p.factorDia; $('p-factorinf').value = p.factorInf;
+  $('p-pb').value = fmtIn(p.precioBase, 'money'); $('p-nombre').value = p.nombre; $('p-ajustes').checked = p.ajustes;
+  $('p-carencia').value = p.carencia; $('p-valordia').value = p.valorDia; $('p-diafijo').value = fmtIn(p.diaFijo, 'money');
+  $('p-factordia').value = fmtIn(p.factorDia); $('p-factorinf').value = fmtIn(p.factorInf);
 }
 
 // ================= eventos =================
@@ -600,7 +611,8 @@ function bind() {
   $('d-bins').oninput = () => { $('d-bins-val').textContent = $('d-bins').value; dist.sel = null; renderDistribucion(); };
   ['d-kde', 'd-bands', 'd-bench-on', 'd-group'].forEach(id => $(id).onchange = renderDistribucion);
   const benchInput = () => {
-    const mean = numOrNull($('d-bmean').value), sd = numOrNull($('d-bsd').value);
+    const tipo = METRICS[$('d-var').value].fmt === GRD.clp ? 'money' : 'decimal';
+    const mean = numIn('d-bmean', tipo), sd = numIn('d-bsd', tipo);
     if (mean != null && sd != null && sd > 0) { state.distBench[$('d-var').value] = { mean, sd }; save(); renderDistribucion(); }
   };
   $('d-bmean').oninput = benchInput; $('d-bsd').oninput = benchInput;
@@ -613,6 +625,9 @@ function bind() {
   $('form-egreso').onsubmit = e => {
     e.preventDefault();
     const eg = formEgreso(), orig = $('e-idx').value;
+    if (eg.dias == null || eg.dias < 0 || !Number.isInteger(eg.dias)) { toast('Días de estada: número entero de 0 o más'); return; }
+    if (eg.costo == null || eg.costo < 0) { toast('Costo total: monto de 0 o más (ej. 5.500.000)'); return; }
+    if ($('e-peso').value.trim() && !(eg.peso > 0)) { toast('Peso manual: número mayor a 0 (ej. 2,34)'); return; }
     const dup = state.egresos.findIndex(x => x.id === eg.id);
     if (dup >= 0 && eg.id !== orig) { toast('Ya existe un egreso con ese ID'); return; }
     const i = state.egresos.findIndex(x => x.id === (orig || eg.id));
@@ -626,7 +641,7 @@ function bind() {
     if (ed) {
       const eg = state.egresos.find(x => x.id === ed);
       $('e-idx').value = eg.id; $('e-id').value = eg.id; $('e-fecha').value = eg.fecha || ''; $('e-grd').value = eg.grd;
-      $('e-serv').value = eg.servicio || ''; $('e-dias').value = eg.dias ?? ''; $('e-costo').value = eg.costo ?? ''; $('e-peso').value = eg.peso ?? '';
+      $('e-serv').value = eg.servicio || ''; $('e-dias').value = eg.dias ?? ''; $('e-costo').value = fmtIn(eg.costo, 'money'); $('e-peso').value = fmtIn(eg.peso);
       previewEgreso(); $('form-egreso').scrollIntoView({ behavior: 'smooth' });
     }
     if (del) { state.egresos = state.egresos.filter(x => x.id !== del); save(); render(); toast('Egreso eliminado'); }
@@ -652,7 +667,7 @@ function bind() {
   $('form-sim').addEventListener('input', e => {
     if (e.target.id === 's-grd') {
       const c = catMap.get(e.target.value.trim());
-      if (c) { $('s-peso').value = c.peso; if ($('s-dias').value === '') $('s-dias').value = Math.round(c.em); }
+      if (c) { $('s-peso').value = fmtIn(c.peso); if ($('s-dias').value === '') $('s-dias').value = Math.round(c.em); }
     }
     renderSim();
   });
@@ -663,8 +678,10 @@ function bind() {
     e.preventDefault();
     const c = {
       codigo: $('c-cod').value.trim().padStart(6, '0'), descripcion: $('c-desc').value.trim(),
-      peso: +$('c-peso').value, em: +$('c-em').value, pci: +$('c-pci').value, pcs: +$('c-pcs').value, p50: +$('c-p50').value
+      peso: numIn('c-peso'), em: numIn('c-em'), pci: numIn('c-pci', 'int'), pcs: numIn('c-pcs', 'int'), p50: numIn('c-p50', 'int')
     };
+    if (!(c.peso > 0) || !(c.em > 0)) { toast('Peso y EM deben ser números mayores a 0 (ej. 2,34)'); return; }
+    if (![c.pci, c.pcs, c.p50].every(v => Number.isInteger(v) && v >= 0) || c.pcs < c.pci) { toast('PCI, PCS y P50: enteros de 0 o más, con PCS ≥ PCI'); return; }
     const i = state.catalogo.findIndex(x => x.codigo === c.codigo);
     if (i >= 0) state.catalogo[i] = c; else state.catalogo.push(c);
     rebuildCat(); save(); $('form-cat').reset(); render(); toast('GRD guardado');
@@ -673,8 +690,8 @@ function bind() {
     const ed = e.target.dataset.cedit, del = e.target.dataset.cdel;
     if (ed) {
       const c = catMap.get(ed);
-      $('c-cod').value = c.codigo; $('c-desc').value = c.descripcion; $('c-peso').value = c.peso;
-      $('c-em').value = c.em; $('c-pci').value = c.pci; $('c-pcs').value = c.pcs; $('c-p50').value = c.p50;
+      $('c-cod').value = c.codigo; $('c-desc').value = c.descripcion; $('c-peso').value = fmtIn(c.peso);
+      $('c-em').value = fmtIn(c.em); $('c-pci').value = c.pci; $('c-pcs').value = c.pcs; $('c-p50').value = c.p50;
       $('form-cat').scrollIntoView({ behavior: 'smooth' });
     }
     if (del) { state.catalogo = state.catalogo.filter(x => x.codigo !== del); rebuildCat(); save(); render(); }
@@ -691,20 +708,34 @@ function bind() {
   $('form-param').onsubmit = e => {
     e.preventDefault();
     state.params = {
-      precioBase: numOrNull($('p-pb').value) ?? DEFAULT_PARAMS.precioBase, nombre: $('p-nombre').value.trim(),
+      precioBase: numIn('p-pb', 'money') ?? DEFAULT_PARAMS.precioBase, nombre: $('p-nombre').value.trim(),
       ajustes: $('p-ajustes').checked, carencia: $('p-carencia').value, valorDia: $('p-valordia').value,
-      diaFijo: numOrNull($('p-diafijo').value) ?? 0, factorDia: numOrNull($('p-factordia').value) ?? 1,
-      factorInf: numOrNull($('p-factorinf').value) ?? 1
+      diaFijo: numIn('p-diafijo', 'money') ?? 0, factorDia: numIn('p-factordia') ?? 1,
+      factorInf: numIn('p-factorinf') ?? 1
     };
-    $('s-pb').value = state.params.precioBase;
+    if (!(state.params.precioBase > 0)) { state.params.precioBase = DEFAULT_PARAMS.precioBase; toast('Precio base inválido: se usó $3.000.000'); }
+    renderParams();
+    $('s-pb').value = fmtIn(state.params.precioBase, 'money');
     save(); toast('Parámetros guardados');
   };
-  $('backup').onclick = () => download(`respaldo_grd_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 1), 'application/json');
+  // Respaldo completo: estado principal + licitación, caso clínico y Modo alumno (sus propias claves de localStorage).
+  const OTRAS = { alumno: 'grd-alumno-v1', caso: 'grd-caso-v1', licitacion: 'grd-licitacion-v1' };
+  $('backup').onclick = () => {
+    const r = { formato: 'respaldo-grd-v2', fecha: new Date().toISOString(), app: state };
+    for (const k in OTRAS) { try { r[k] = JSON.parse(localStorage.getItem(OTRAS[k])); } catch (e) { r[k] = null; } }
+    download(`respaldo_grd_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(r, null, 1), 'application/json');
+  };
   $('restore').onchange = e => readFile(e.target, txt => {
     try {
       const s = JSON.parse(txt);
-      state = { params: { ...DEFAULT_PARAMS, ...s.params }, catalogo: s.catalogo || [], egresos: s.egresos || [], distBench: s.distBench || {} };
-      rebuildCat(); save(); render(); toast('Respaldo restaurado');
+      const a = s.formato === 'respaldo-grd-v2' ? s.app : s;   // también acepta respaldos antiguos (sólo estado principal)
+      state = { params: { ...DEFAULT_PARAMS, ...a.params }, catalogo: a.catalogo || [], egresos: a.egresos || [], distBench: a.distBench || {} };
+      rebuildCat(); save();
+      if (s.formato === 'respaldo-grd-v2') {
+        for (const k in OTRAS) { try { if (s[k] != null) localStorage.setItem(OTRAS[k], JSON.stringify(s[k])); } catch (err) { /* sin storage */ } }
+        toast('Respaldo restaurado: recargando…');
+        setTimeout(() => location.reload(), 700);    // los demás módulos leen su estado al iniciar
+      } else { render(); toast('Respaldo restaurado'); }
     } catch (err) { toast('Archivo de respaldo inválido'); }
   });
 
