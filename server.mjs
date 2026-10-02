@@ -10,6 +10,7 @@ import { collectResponse, tutorPayload, validateGeneratedQuestions } from './lib
 import { createUsageMeter } from './lib/usage.mjs';
 import { validateGeneratedCase } from './lib/cases.mjs';
 import { validateGeneratedMaterial } from './lib/material.mjs';
+import { sessionTokens } from './lib/session-token.mjs';
 export { collectResponse, tutorPayload } from './lib/tutor.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -20,7 +21,11 @@ function json(res, code, data) { res.writeHead(code, { 'Content-Type': 'applicat
 async function readJSON(req) {
   if (!req.headers['content-type']?.startsWith('application/json')) throw new PublicError('Formato de solicitud inválido.', 415);
   let bytes = 0, data = '';
-  for await (const chunk of req) { bytes += chunk.length; if (bytes > 300000) throw new PublicError('Divide el material en temas más pequeños.', 413); data += chunk; }
+  // Vercel can parse the body before invoking a Node function. Local HTTP uses the stream.
+  if (req.body !== undefined) {
+    data = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    if (Buffer.byteLength(data) > 300000) throw new PublicError('Divide el material en temas más pequeños.', 413);
+  } else for await (const chunk of req) { bytes += chunk.length; if (bytes > 300000) throw new PublicError('Divide el material en temas más pequeños.', 413); data += chunk; }
   try { const parsed = JSON.parse(data); if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw Error(); return parsed; }
   catch { throw new PublicError('Solicitud JSON inválida.'); }
 }
@@ -31,30 +36,42 @@ export function serverConfig(env = process.env) {
   if (!['127.0.0.1', '0.0.0.0'].includes(host)) throw Error('HOST debe ser 127.0.0.1 (local) o 0.0.0.0 (hosting).');
   if (!/^[\w.:-]{1,120}$/.test(model)) throw Error('OPENAI_MODEL no es válido.');
   let origin = '';
-  if (env.APP_ORIGIN) {
-    const url = new URL(env.APP_ORIGIN);
+  const vercel = env.VERCEL === '1';
+  const deploymentHost = env.VERCEL_ENV === 'preview' ? env.VERCEL_URL : env.VERCEL_PROJECT_PRODUCTION_URL || env.VERCEL_URL;
+  const configuredOrigin = env.APP_ORIGIN || (vercel && deploymentHost ? 'https://' + deploymentHost : '');
+  if (configuredOrigin) {
+    let url; try { url = new URL(configuredOrigin); } catch { throw Error('APP_ORIGIN debe ser una URL HTTPS válida, sin rutas.'); }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw Error('APP_ORIGIN debe ser la dirección de la app, sin rutas ni credenciales.');
     origin = url.origin;
   }
-  const publicAddress = host === '0.0.0.0' || (origin && !['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
+  const publicAddress = vercel || host === '0.0.0.0' || (origin && !['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
   if (publicAddress && (!origin.startsWith('https://') || password.length < 16)) throw Error('Para publicar configura APP_ORIGIN con HTTPS y APP_PASSWORD con al menos 16 caracteres.');
-  return { host, apiKey, model, password, origin };
+  return { host, apiKey, model, password, origin, vercel };
 }
 
-export async function startServer(port = Number(process.env.PORT || 8787), { env = process.env, fetchImpl = fetch, usageFile = resolve(ROOT, '.local', 'api-usage.json') } = {}) {
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw Error('PORT no es válido.');
+export async function createApp({ env = process.env, fetchImpl = fetch, usageFile = env.VERCEL === '1' ? null : resolve(ROOT, '.local', 'api-usage.json') } = {}) {
   const config = serverConfig(env), sessions = new Map();
   const meter = await createUsageMeter({ file: usageFile, apiKey: config.apiKey, model: config.model });
-  let origin = config.origin, allowedHosts, active = 0;
+  const tokens = config.vercel ? sessionTokens({ secret: config.password, origin: config.origin }) : null;
+  const revoked = new Map();
+  let active = 0;
   const minute = () => ({ start: Date.now(), count: 0 });
   let calls = minute(), logins = minute();
   const configured = !!config.apiKey;
   const models = [{ slug: config.model, display_name: config.model }];
-  const cookie = (id, maxAge = 28800) => `appgrd-session=${id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${origin.startsWith('https://') ? '; Secure' : ''}`;
+  const cookie = (id, maxAge = 28800) => `appgrd-session=${id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${config.origin.startsWith('https://') ? '; Secure' : ''}`;
   function session(req, res) {
-    const id = req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith('appgrd-session='))?.slice(15);
+    const now = Date.now();
+    for (const [id, item] of sessions) if (now >= item.expires) sessions.delete(id);
+    for (const [id, expires] of revoked) if (now >= expires) revoked.delete(id);
+    const raw = req.headers.cookie?.split(';').map(s => s.trim()).find(s => s.startsWith('appgrd-session='))?.slice(15);
+    const signed = tokens?.verify(raw), id = signed?.id || raw;
     let s = id && sessions.get(id);
-    if (s && Date.now() >= s.expires) { sessions.delete(id); s = null; }
+    if (tokens && (!signed || revoked.has(id)) && s?.authorized) s = null;
+    if (!s && signed && !revoked.has(id)) {
+      if (sessions.size >= 1000) throw new PublicError('Hay demasiadas sesiones abiertas. Intenta más tarde.', 503);
+      s = { ...signed, authorized: true, busy: false }; sessions.set(id, s);
+    }
     if (!s) {
       if (sessions.size >= 1000) throw new PublicError('Hay demasiadas sesiones abiertas. Intenta más tarde.', 503);
       const newId = randomBytes(32).toString('base64url');
@@ -73,7 +90,10 @@ export async function startServer(port = Number(process.env.PORT || 8787), { env
     if (!response.ok) throw await apiError(response, web);
     return response;
   }
-  const server = createServer(async (req, res) => {
+  const handler = async (req, res) => {
+    const localPort = req.socket?.localPort;
+    const origin = config.origin || `http://127.0.0.1:${localPort}`;
+    const allowedHosts = new Set(config.origin ? [new URL(origin).host] : [`127.0.0.1:${localPort}`, `localhost:${localPort}`]);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -90,18 +110,19 @@ export async function startServer(port = Number(process.env.PORT || 8787), { env
         }
         if (url.pathname === '/api/usage' && req.method === 'GET') {
           if (!s.authorized) throw new PublicError('Ingresa al tutor para consultar el consumo de la API.', 401);
-          json(res, 200, { configured, ...meter.snapshot() }); return;
+          json(res, 200, { configured, ...meter.snapshot(), ...(config.vercel ? { scope: 'instance', persistenceWarning: true } : {}) }); return;
         }
         if (url.pathname === '/api/login' && req.method === 'POST') {
           const data = await readJSON(req);
           if (Date.now() - logins.start >= 60000) logins = minute();
           if (logins.count >= 10) throw new PublicError('Demasiados intentos. Espera un minuto antes de ingresar nuevamente.', 429);
           if (typeof data.password !== 'string' || data.password.length > 1000 || !timingSafeEqual(digest(data.password), digest(config.password))) { logins.count++; throw new PublicError('La contraseña de acceso no es correcta.', 401); }
+          if (tokens && s.authorized) revoked.set(s.id, s.expires);
           sessions.delete(s.id); s.id = randomBytes(32).toString('base64url'); s.authorized = true; s.expires = Date.now() + 8 * 3600000;
-          sessions.set(s.id, s); res.setHeader('Set-Cookie', cookie(s.id)); json(res, 200, { ok: true }); return;
+          sessions.set(s.id, s); res.setHeader('Set-Cookie', cookie(tokens ? tokens.issue(s) : s.id)); json(res, 200, { ok: true }); return;
         }
         if (url.pathname === '/api/logout' && req.method === 'POST') {
-          await readJSON(req); s.authorized = false; sessions.delete(s.id); res.setHeader('Set-Cookie', cookie('', 0)); json(res, 200, { ok: true }); return;
+          await readJSON(req); if (tokens && s.authorized) revoked.set(s.id, s.expires); s.authorized = false; sessions.delete(s.id); res.setHeader('Set-Cookie', cookie('', 0)); json(res, 200, { ok: true }); return;
         }
         if (url.pathname === '/api/check' && req.method === 'POST') {
           await readJSON(req); requireAccess(s);
@@ -148,13 +169,16 @@ export async function startServer(port = Number(process.env.PORT || 8787), { env
       const error = err instanceof PublicError ? err.message : err.code === 'ENOENT' ? 'Archivo no encontrado.' : timeout ? 'La API tardó demasiado en responder. Inténtalo nuevamente con un tema más pequeño.' : 'No se pudo completar la operación. Verifica tu conexión y vuelve a intentar.';
       if (!res.headersSent) json(res, err.status || (err.code === 'ENOENT' ? 404 : timeout ? 504 : 500), { error, ...(err instanceof PublicError && err.code ? { code: err.code } : {}) }); else res.end();
     }
-  });
-  const cleanup = setInterval(() => { for (const [id, s] of sessions) if (s.expires <= Date.now()) sessions.delete(id); }, 60000); cleanup.unref(); server.on('close', () => clearInterval(cleanup));
+  };
+  return { handler, config };
+}
+
+export async function startServer(port = Number(process.env.PORT || 8787), options = {}) {
+  if (!Number.isInteger(port) || port < 0 || port > 65535) throw Error('PORT no es válido.');
+  const { handler, config } = await createApp(options);
+  const server = createServer(handler);
   try { await new Promise((done, fail) => { server.once('error', fail); server.listen(port, config.host, done); }); }
-  catch (err) { clearInterval(cleanup); throw err; }
-  const boundPort = server.address().port;
-  origin ||= `http://127.0.0.1:${boundPort}`;
-  allowedHosts = new Set(config.origin ? [new URL(origin).host] : [`127.0.0.1:${boundPort}`, `localhost:${boundPort}`]);
+  catch (err) { server.close(); throw err; }
   return server;
 }
 

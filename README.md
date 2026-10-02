@@ -158,6 +158,22 @@ El archivo `.nojekyll` permite publicar directamente los archivos estáticos. Es
 
 ### Publicar también el tutor IA para celular
 
+#### Vercel
+
+El repositorio incluye `vercel.json`, la función `api/[...path].mjs` y un paso de compilación que publica solamente la interfaz y sus recursos. Las rutas `/api/session`, `/api/login`, `/api/check`, `/api/usage` y `/api/tutor` se ejecutan en una Vercel Function. El servidor local sigue iniciándose con `npm start`.
+
+1. Conecta `csiegelt/appgrd`, rama `main`, con la raíz del repositorio como **Root Directory**. `vercel.json` define **Framework: Other**, el comando `node scripts/build-vercel.mjs` y la salida `.vercel-static`.
+2. En **Settings → Environment Variables → Production**, guarda `OPENAI_API_KEY`, `OPENAI_MODEL`, `APP_ORIGIN` (por ejemplo `https://appgrd.vercel.app`) y `APP_PASSWORD` (al menos 16 caracteres). El modelo predeterminado es `gpt-4.1-mini`. No copies `HOST` ni `PORT` del entorno local. Si omites `APP_ORIGIN`, se usa el dominio que Vercel comunica mediante sus variables de sistema; una dirección explícita fija el dominio canónico.
+3. Despliega el nuevo commit. Los cambios de variables necesitan un nuevo despliegue: **Deployments → Redeploy**. El proyecto debe tener **Fluid compute** habilitado para el tiempo de respuesta configurado de 240 segundos.
+4. Abre `https://tu-dominio/api/session`: debe devolver JSON con `provider: "openai-api"`, `configured: true` y `authRequired: true` antes de entrar. Un 404 significa que todavía falta desplegar la API; no prueba que la clave sea inválida. `setupError` identifica variables de configuración faltantes.
+5. Entra al tutor usando **APP_PASSWORD**, y pulsa **Comprobar conexión API**. OPENAI_API_KEY permanece en el servidor y no se pega en el formulario de acceso.
+
+En Vercel las sesiones se validan mediante cookies firmadas para que funcionen entre instancias. Duran hasta ocho horas; cerrar acceso borra la cookie del navegador. Cambiar APP_PASSWORD y volver a desplegar invalida las firmas en las nuevas instancias. No hay una base compartida de revocaciones: una copia de un token anterior puede seguir siendo válida en otra instancia hasta su vencimiento. Los contadores de uso y límites de solicitudes son temporales por instancia; el panel lo indica. El consumo completo se consulta en OpenAI. No se escribe en el directorio de despliegue ni se publican archivos `.env`, el servidor o los registros locales.
+
+Referencias: [variables y redespliegue](https://vercel.com/docs/environment-variables/managing-environment-variables), [funciones Node.js](https://vercel.com/docs/functions/runtimes/node-js), [configuración de compilación](https://vercel.com/docs/builds/configure-a-build).
+
+#### Otros servicios Node.js
+
 Publica **el servidor y la interfaz juntos** en un servicio que ejecute Node.js 22 o superior detrás de HTTPS. El repositorio no necesita un paso de compilación. En este equipo el proyecto está en `repo`; en GitHub, `package.json` está en la raíz del repositorio.
 
 1. Conecta el repositorio al servicio Node.js que uses y selecciona su rama.
