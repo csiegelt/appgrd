@@ -19,6 +19,14 @@ const Estudio = (() => {
     } catch { status = 'No se pudieron unificar las copias por falta de almacenamiento. Tus datos anteriores se conservan; descarga un respaldo antes de liberar espacio.'; }
   }
   let apiUsage = null, usageLoading = false, usageError = '', usageLocked = false, usagePromise = null;
+  const economicsUpdated = EconomiaIntegracion.enhance(st);
+  if (economicsUpdated) {
+    try {
+      localStorage.setItem('grd-estudio-antes-economia-v1', JSON.stringify(st));
+      localStorage.setItem(KEY, JSON.stringify(economicsUpdated));
+      st = economicsUpdated;
+    } catch { status = 'No se pudo guardar la ampliación de Economía por falta de espacio. Tu material anterior se conserva; descarga un respaldo.'; }
+  }
   // Generated cases and their answers belong only to this open page, never to localStorage or exports.
   const caseSessions = new Map();
   let creatingCase = false;
@@ -26,7 +34,10 @@ const Estudio = (() => {
   const tokenNumber = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString('es-CL') : '—';
   const usageDate = value => value ? new Date(value).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : 'Sin consultas';
   const root = () => document.getElementById('tab-estudio');
-  const subjects = () => [st.subjects.find(s => s.id === SALUD_ASIGNATURA.id) || SALUD_ASIGNATURA, ...st.subjects.filter(s => s.id !== SALUD_ASIGNATURA.id)];
+  const economicsID = EconomiaIntegracion.find(st)?.id || ECONOMIA_ASIGNATURA.id;
+  const builtins = [SALUD_ASIGNATURA, CUANTITATIVAS_ASIGNATURA, { ...ECONOMIA_ASIGNATURA, id: economicsID }];
+  const isEconomics = () => subject().id === economicsID;
+  const subjects = () => [...builtins.map(b => st.subjects.find(s => s.id === b.id) || b), ...st.subjects.filter(s => !builtins.some(b => b.id === s.id))];
   const subject = () => subjects().find(s => s.id === st.selected) || SALUD_ASIGNATURA;
   const lesson = () => subject().lessons.find(l => l.id === st.lesson) || subject().lessons[0];
   const progressKey = id => `${subject().id}/${id}`;
@@ -39,7 +50,8 @@ const Estudio = (() => {
   }
   function editableSubject(id) {
     let s = st.subjects.find(x => x.id === id);
-    if (!s && id === SALUD_ASIGNATURA.id) { s = structuredClone(SALUD_ASIGNATURA); st.subjects.push(s); }
+    const base = builtins.find(b => b.id === id);
+    if (!s && base) { s = structuredClone(base); st.subjects.push(s); }
     return s;
   }
   function consolidateSubjects(state) {
@@ -104,7 +116,7 @@ const Estudio = (() => {
     if (editor === 'subject') parts.push('<span aria-current="page">Nueva asignatura</span>');
     else {
       parts.push(view === 'subject' && !editor ? `<span aria-current="page">${html(subject().name)}</span>` : button('subject', html(subject().name), `data-id="${html(subject().id)}"`, 'crumb'));
-      if (view !== 'subject' || editor) parts.push('<span aria-current="page">Estudio para la prueba</span>');
+      if (view !== 'subject' || editor) parts.push(`<span aria-current="page">${view === 'resources' ? 'Laboratorios interactivos' : 'Estudio para la prueba'}</span>`);
     }
     return `<nav class="study-breadcrumbs" aria-label="Ubicación">${parts.join('<span aria-hidden="true">/</span>')}</nav>`;
   }
@@ -115,8 +127,9 @@ const Estudio = (() => {
   function notice() { return status ? `<p class="study-notice" role="status">${html(status)}</p>` : ''; }
   function render() {
     const r = root(); if (!r) return;
-    r.innerHTML = shell(editor ? editorUI() : view === 'library' ? libraryUI() : view === 'subject' ? subjectUI() : view === 'home' ? homeUI() : view === 'lesson' ? lessonUI() : view === 'cards' ? cardsUI() : view === 'quiz' ? quizUI() : view === 'cases' ? casesUI() : tutorUI());
+    r.innerHTML = shell(editor ? editorUI() : view === 'library' ? libraryUI() : view === 'subject' ? subjectUI() : view === 'resources' ? resourcesUI() : view === 'home' ? homeUI() : view === 'lesson' ? lessonUI() : view === 'cards' ? cardsUI() : view === 'quiz' ? quizUI() : view === 'cases' ? casesUI() : tutorUI());
     r.onclick = onClick; r.onchange = onChange; r.oninput = onInput; r.onsubmit = onSubmit;
+    r.onpointerdown = e => { if (!EconomiaLab.pointerdown(e)) CuantitativasLab.pointerdown(e); };
     if (busy) r.querySelectorAll('#study-model, #study-ai-context, #study-difficulty, #study-practice-style, #study-web, #study-material-topic, #study-case-topic, #study-case-difficulty, #study-case-select, #study-case-ai-select, .study-case-step textarea').forEach(control => { control.disabled = true; });
     const home = document.getElementById('app-home');
     if (home) { home.disabled = busy; if (view === 'library' && !editor) home.setAttribute('aria-current', 'page'); else home.removeAttribute('aria-current'); }
@@ -179,9 +192,17 @@ const Estudio = (() => {
     })();
     return usagePromise;
   }
+  function resourcesPanel() {
+    if (isEconomics()) return `<article class="study-panel econ-entry"><div><span class="study-eyebrow">APRENDER HACIENDO</span><h3>Laboratorio de Economía de la Salud</h3><p>Modifica los gráficos del documento, compara escenarios y resuelve ejercicios. Oferta, demanda, elasticidad, economías de escala, productividad, monopolio y seguros.</p><p class="study-footnote">Tablas editables, fórmulas opcionales y soluciones paso a paso. Disponible sin IA.</p></div><div class="study-actions">${button('resources', 'Abrir laboratorios interactivos →')}</div></article>`;
+    if (subject().id !== 'herramientas-cuantitativas') return '';
+    return `<article class="study-panel"><h3>Guía y gráficos editables</h3><p>Practica regresiones, chi cuadrado, búsquedas y Erlang con los datos de clase y ejemplos de salud. Cambia los datos y observa los resultados.</p><div class="study-actions">${button('resources', 'Abrir laboratorios interactivos')}<a class="study-btn secondary" href="manual/cuantitativas/ejercicios.xlsx" download>Descargar Excel editable</a><a class="study-btn secondary" href="manual/cuantitativas/guia.pdf" target="_blank" rel="noopener">Leer guía PDF</a></div><p class="study-footnote">La guía explica las discrepancias del archivo de chi cuadrado. Los ejemplos nuevos de salud son simulados.</p></article>`;
+  }
+  function resourcesUI() {
+    return `${button('subject', '← Volver a la asignatura', `data-id="${html(subject().id)}"`, 'secondary')}${isEconomics() ? EconomiaLab.html() : CuantitativasLab.html()}`;
+  }
   function subjectUI() {
     const s = subject(), health = s.id === 'sistemas-salud';
-    return `<div class="study-top"><div><span class="study-eyebrow">ASIGNATURA</span><h2>${html(s.name)}</h2><p>Elige el contenido que quieres trabajar hoy.</p></div>${badge(health ? '2 contenidos' : '1 contenido')}</div>
+    return `<div class="study-top"><div><span class="study-eyebrow">ASIGNATURA</span><h2>${html(s.name)}</h2><p>Elige el contenido que quieres trabajar hoy.</p></div>${badge(health ? '2 contenidos' : '1 contenido')}</div>${resourcesPanel()}
       <div class="study-module-grid"><button type="button" class="study-module-card study-module-exam" data-action="home"><span class="study-folder-icon">${icon('book')}</span><span class="study-eyebrow">LECTURA Y PRÁCTICA</span><strong>Estudio para la prueba</strong><span class="study-card-description">Guías, tarjetas, preguntas, casos prácticos y tutor IA para preparar tu evaluación.</span><span class="study-module-tags">${badge(`${s.lessons.length} temas`)}${badge(`${questions().length} preguntas`)}${s.cases.length ? badge(`${s.cases.length} casos`) : ''}</span><span class="study-card-footer">Ir a estudiar <span aria-hidden="true">→</span></span></button>
       ${health ? `<button type="button" class="study-module-card study-module-grd" data-action="grd"><span class="study-folder-icon">${icon('chart')}</span><span class="study-eyebrow">ANÁLISIS Y SIMULACIÓN</span><strong>GRD</strong><span class="study-card-description">Explora los Grupos Relacionados por el Diagnóstico y practica el análisis de costos y pagos hospitalarios.</span><span class="study-module-tags">${badge('Simulador')}${badge('Casos y cálculos')}${badge('Licitaciones')}</span><span class="study-card-footer">Abrir herramientas GRD <span aria-hidden="true">→</span></span></button>` : ''}</div>`;
   }
@@ -197,7 +218,7 @@ const Estudio = (() => {
       <div class="study-hero-art" aria-hidden="true"><div class="study-art-card">Aa<span>Comprender</span></div><div class="study-art-card">✓<span>Recordar</span></div><div class="study-art-card">↗<span>Aplicar</span></div></div></article>
       <div class="study-stats"><div><strong>${read}/${s.lessons.length}</strong><span>Temas leídos</span></div><div><strong>${pending}</strong><span>Por repasar</span></div><div><strong>${st.history.filter(h => h.subject === s.id).length}</strong><span>Prácticas realizadas</span></div></div>
       <div class="study-modes">${modeCard('practice-ai', '✦', 'Práctica IA', 'Preguntas nuevas en cada sesión. Responde y recibe una explicación.', 'Con la API de OpenAI')}${modeCard('cards', '▤', 'Tarjetas', 'Recuerda antes de revelar la respuesta.', `${qs.length} preguntas`)}${modeCard('quiz', '✓', 'Autoevaluación', 'Practica con corrección y explicación.', 'Sesiones de hasta 10 preguntas')}${modeCard('cases', '↗', 'Casos prácticos', 'Asume un rol, decide y justifica tu solución.', `${s.cases.length} incluidos · Nuevos casos con IA`)}</div>
-      <div class="study-section-title"><h3>Tu ruta de estudio</h3>${button('add-lesson', '+ Tema', '', 'secondary')}</div><label class="study-search">Buscar en títulos y contenido<input id="study-search" type="search" placeholder="Por ejemplo: riesgo moral, GRD…" value="${html(query)}"></label>
+      ${isEconomics() ? resourcesPanel() : ''}<div class="study-section-title"><h3>Tu ruta de estudio</h3>${button('add-lesson', '+ Tema', '', 'secondary')}</div><label class="study-search">Buscar en títulos y contenido<input id="study-search" type="search" placeholder="Por ejemplo: riesgo moral, GRD…" value="${html(query)}"></label>
       <div class="study-topics" id="study-topics">${topicCards()}</div>
       <details class="study-source"><summary>Sobre este material y tus datos</summary><p>${html(s.source)}</p><p>Las cifras y referencias normativas pertenecen a los periodos del material. El tutor puede contrastarlas con fuentes actuales cuando habilitas la búsqueda web.</p><p>Tu biblioteca y avance se guardan en este navegador. Descarga esta asignatura o respalda todos tus datos desde Sistemas de Salud → GRD → Parámetros.</p>${button('export-subject', 'Descargar asignatura', '', 'secondary')} <label>Importar asignatura JSON<input id="study-import" type="file" accept=".json,application/json"></label></details>
       ${historyUI()}`;
@@ -216,6 +237,7 @@ const Estudio = (() => {
     return `${back()}<div class="study-section-title"><div><span class="study-eyebrow">TEMA ${subject().lessons.indexOf(l) + 1}</span><h3>${html(l.title)}</h3></div>${button('tutor', '✦ Preguntar al tutor', '', 'secondary')}</div>
       <div class="study-switch" aria-label="Modo del tema">${['guide','reading'].map(m => button('lesson-mode', m === 'guide' ? 'Guía de apoyo' : 'Texto completo', `data-mode="${m}" aria-pressed="${mode === m}"`, mode === m ? 'selected' : 'secondary')).join('')}</div>
       ${materialPanel(l)}
+      ${isEconomics() && l.lab ? `<div class="study-actions">${button('resources', 'Practicar este tema con gráficos →', `data-lab="${html(l.lab)}"`)}</div>` : ''}
       ${mode === 'guide' ? needsMaterial(l) ? '<p class="study-empty">Tu texto está guardado. Genera la guía con IA para estudiar sus ideas explicadas y practicar con tarjetas.</p>' : `<div class="study-objective"><span aria-hidden="true">◎</span><div><strong>Al terminar podrás…</strong><p>${html(l.objective)}</p></div></div><div class="study-support">${l.summary.map((p, i) => `<article><span class="study-eyebrow">IDEA ${i + 1}</span><p>${html(p)}</p></article>`).join('')}</div><article class="study-panel"><h4>Explícalo con tus palabras</h4><p>¿Cuál es el concepto central? ¿Cómo funciona? ¿Qué ejemplo lo ilustra? ¿Qué límite o condición debes recordar?</p></article>` : `<article class="study-panel study-reading">${l.text.split(/\n+/).filter(Boolean).map(p => p.length < 100 && !/[.!?]$/.test(p) ? `<h4>${html(p)}</h4>` : `<p>${html(p)}</p>`).join('')}</article>`}
       <label class="study-panel">Mis apuntes<textarea id="study-note" rows="5" placeholder="Escribe una explicación o las dudas que quieres repasar…">${html(note)}</textarea><small>Se guardan mientras escribes.</small></label>
       <div class="study-actions">${button('mark-read', progress(l.id).read ? '✓ Leído · marcar pendiente' : 'Marcar como leído', '', 'secondary')}${button('practice-ai', '✦ Preguntas nuevas con IA')}${button('topic-cards', 'Practicar tarjetas', '', 'secondary')}${button('topic-quiz', 'Evaluarme', '', 'secondary')}</div><p class="study-footnote">Fuente: capítulo ${subject().lessons.indexOf(l) + 1} · ${html(subject().source)}</p>`;
@@ -449,6 +471,8 @@ const Estudio = (() => {
     finally { await refreshUsage(true); busy = false; render(); }
   }
   function onClick(e) {
+    if (EconomiaLab.handle(e)) return;
+    if (CuantitativasLab.handle(e)) return;
     const b = e.target.closest('[data-action]'); if (!b || b.disabled) return;
     const a = b.dataset.action;
     if (busy && !['refresh-ai'].includes(a)) return;
@@ -456,6 +480,7 @@ const Estudio = (() => {
     else if (a === 'refresh-usage') { refreshUsage(); return; }
     else if (a === 'subject') { openSubject(b.dataset.id); return; }
     else if (a === 'grd' && subject().id === 'sistemas-salud') { setTab('dashboard'); return; }
+    else if (a === 'resources' && (subject().id === 'herramientas-cuantitativas' || isEconomics())) { if (isEconomics() && b.dataset.lab) EconomiaLab.open(b.dataset.lab); view = 'resources'; status = ''; }
     else if (a === 'home') { view = 'home'; editor = null; scope = null; status = ''; }
     else if (a === 'lesson' || a === 'source') { st.lesson = b.dataset.id; mode = a === 'source' ? 'reading' : 'guide'; view = 'lesson'; save(); }
     else if (a === 'lesson-mode') mode = b.dataset.mode;
@@ -501,6 +526,8 @@ const Estudio = (() => {
     render();
   }
   function onInput(e) {
+    if (EconomiaLab.handle(e)) return;
+    if (CuantitativasLab.handle(e)) return;
     if (e.target.id === 'study-search') { query = e.target.value; root().querySelector('#study-topics').innerHTML = topicCards(); }
     if (e.target.id === 'study-note') { st.notes[progressKey(lesson().id)] = e.target.value; save(); }
     if (e.target.dataset.note) { st.notes[e.target.dataset.note] = e.target.value; save(); }
@@ -508,6 +535,8 @@ const Estudio = (() => {
     if (e.target.id === 'study-message') draft = e.target.value;
   }
   async function onChange(e) {
+    if (EconomiaLab.handle(e)) return;
+    if (CuantitativasLab.handle(e)) return;
     if (e.target.id === 'study-review') { reviewOnly = e.target.checked; card = 0; revealed = false; render(); }
     if (e.target.id === 'study-web') web = e.target.checked;
     if (e.target.id === 'study-model') model = e.target.value;
@@ -529,6 +558,7 @@ const Estudio = (() => {
     }
   }
   function onSubmit(e) {
+    if (EconomiaLab.handle(e)) return;
     e.preventDefault();
     if (e.target.id === 'study-login-form') {
       if (busy) return;

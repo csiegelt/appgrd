@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const sandbox = vm.createContext({ localStorage: { getItem: () => null }, crypto: globalThis.crypto, structuredClone });
-for (const name of ['estudio-fuente.js', 'estudio-contenido.js', 'estudio.js']) {
+for (const name of ['estudio-fuente.js', 'estudio-contenido.js', 'cuantitativas-contenido.js', 'economia-contenido.js', 'estudio.js']) {
   vm.runInContext(readFileSync(new URL('../js/' + name, import.meta.url), 'utf8'), sandbox);
 }
 const run = code => vm.runInContext(code, sandbox);
@@ -54,7 +54,7 @@ function loadSavedStudy(saved, failWrite = false) {
     getItem: key => storage.get(key) ?? null,
     setItem: (key, value) => { if (failWrite) throw Error('Storage full'); storage.set(key, value); }
   } });
-  for (const name of ['estudio-fuente.js', 'estudio-contenido.js', 'estudio.js']) vm.runInContext(readFileSync(new URL('../js/' + name, import.meta.url), 'utf8'), context);
+  for (const name of ['estudio-fuente.js', 'estudio-contenido.js', 'cuantitativas-contenido.js', 'economia-contenido.js', 'estudio.js']) vm.runInContext(readFileSync(new URL('../js/' + name, import.meta.url), 'utf8'), context);
   return { storage, state: JSON.parse(storage.get('grd-estudio-v1')) };
 }
 
