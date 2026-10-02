@@ -138,11 +138,11 @@ test('malformed requests are rejected before the provider; timeouts are actionab
   const response = await call('/api/tutor', input); assert.equal(response.status, 504); assert.match((await response.json()).error, /tardó demasiado/);
 });
 
-test('hosting requires HTTPS and a password; secure cookies and canonical origin work behind a proxy', async t => {
+test('hosting requires HTTPS with an optional password; secure cookies and canonical origin work behind a proxy', async t => {
   assert.throws(() => serverConfig({ HOST: '0.0.0.0' }));
-  assert.throws(() => serverConfig({ APP_ORIGIN: 'https://study.example' }));
+  assert.equal(serverConfig({ APP_ORIGIN: 'https://study.example' }).password, '');
   assert.throws(() => serverConfig({ HOST: '0.0.0.0', APP_ORIGIN: 'http://study.example', APP_PASSWORD: password }));
-  assert.throws(() => serverConfig({ HOST: '0.0.0.0', APP_ORIGIN: 'https://study.example', APP_PASSWORD: 'short' }));
+  assert.equal(serverConfig({ HOST: '0.0.0.0', APP_ORIGIN: 'https://study.example', APP_PASSWORD: 'short' }).password, 'short');
   assert.equal(serverConfig({ HOST: '0.0.0.0', APP_ORIGIN: 'https://study.example/', APP_PASSWORD: password }).origin, 'https://study.example');
   const { call } = await setup(t, { APP_ORIGIN: 'https://study.example', APP_PASSWORD: password, OPENAI_API_KEY: secret });
   const response = await call('/api/session', undefined, { Host: 'study.example' });

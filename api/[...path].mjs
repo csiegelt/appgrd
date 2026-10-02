@@ -15,7 +15,7 @@ export function createVercelHandler({ env = process.env, fetchImpl = fetch } = {
       });
       res.end(JSON.stringify(session ? {
         available: true, provider: 'openai-api', configured: !!settings.OPENAI_API_KEY?.trim(),
-        connected: false, authRequired: true, protected: true, models: [], setupError
+        connected: false, authRequired: !!settings.APP_PASSWORD, protected: !!settings.APP_PASSWORD, models: [], setupError
       } : { error: setupError, code: 'APP_CONFIGURATION' }));
       return;
     }

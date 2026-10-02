@@ -45,14 +45,14 @@ export function serverConfig(env = process.env) {
     origin = url.origin;
   }
   const publicAddress = vercel || host === '0.0.0.0' || (origin && !['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
-  if (publicAddress && (!origin.startsWith('https://') || password.length < 16)) throw Error('Para publicar configura APP_ORIGIN con HTTPS y APP_PASSWORD con al menos 16 caracteres.');
+  if (publicAddress && !origin.startsWith('https://')) throw Error('Para publicar configura APP_ORIGIN con la dirección HTTPS del portal.');
   return { host, apiKey, model, password, origin, vercel };
 }
 
 export async function createApp({ env = process.env, fetchImpl = fetch, usageFile = env.VERCEL === '1' ? null : resolve(ROOT, '.local', 'api-usage.json') } = {}) {
   const config = serverConfig(env), sessions = new Map();
   const meter = await createUsageMeter({ file: usageFile, apiKey: config.apiKey, model: config.model });
-  const tokens = config.vercel ? sessionTokens({ secret: config.password, origin: config.origin }) : null;
+  const tokens = config.vercel && config.password ? sessionTokens({ secret: config.password, origin: config.origin }) : null;
   const revoked = new Map();
   let active = 0;
   const minute = () => ({ start: Date.now(), count: 0 });

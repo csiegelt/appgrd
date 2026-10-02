@@ -30,9 +30,9 @@ async function instance(t, settings = env, fetchImpl = () => { throw Error('Unex
   });
 }
 
-test('Vercel exposes a setup diagnosis while missing protection blocks every paid request',async t=>{
+test('Vercel exposes a setup diagnosis while missing HTTPS origin blocks provider requests',async t=>{
   const call=await instance(t,{OPENAI_API_KEY:env.OPENAI_API_KEY,OPENAI_MODEL:env.OPENAI_MODEL});
-  const response=await call('/api/session');assert.equal(response.status,200);assert.equal(response.data.available,true);assert.equal(response.data.connected,false);assert.match(response.data.setupError,/APP_ORIGIN.*APP_PASSWORD/);
+  const response=await call('/api/session');assert.equal(response.status,200);assert.equal(response.data.available,true);assert.equal(response.data.connected,false);assert.match(response.data.setupError,/APP_ORIGIN.*HTTPS/);
   assert.equal((await call('/api/check',{})).status,503);assert.equal((await call('/api/tutor',input)).status,503);
   assert.ok(!JSON.stringify(response).includes(env.OPENAI_API_KEY));
   assert.throws(()=>serverConfig({VERCEL:'1',OPENAI_API_KEY:env.OPENAI_API_KEY}));
@@ -64,6 +64,57 @@ test('Vercel routes work with parsed JSON and a login survives a different funct
   assert.equal((await rotated('/api/session',undefined,login.cookie)).data.connected,false);
   const logout=await two('/api/logout',{},login.cookie);assert.match(logout.headers['set-cookie'][0],/Max-Age=0/);assert.equal((await two('/api/check',{},login.cookie)).status,401);
   assert.equal(providerCalls,2);
+});
+
+test('Vercel accepts short passwords and preserves authentication across function instances',async t=>{
+  const shortEnv={...env,APP_PASSWORD:'1234'};
+  const one=await instance(t,shortEnv),two=await instance(t,shortEnv);
+  const start=await one('/api/session');
+  assert.equal(start.data.authRequired,true);assert.equal(start.data.protected,true);
+  assert.equal((await one('/api/login',{password:'wrong'},start.cookie)).status,401);
+  const login=await one('/api/login',{password:shortEnv.APP_PASSWORD},start.cookie);
+  assert.equal(login.status,200);
+  const resumed=await two('/api/session',undefined,login.cookie);
+  assert.equal(resumed.data.connected,true);assert.equal(resumed.data.authRequired,false);
+  assert.equal((await two('/api/check',{})).status,401);
+});
+
+test('Vercel without a password opens the tutor directly, reuses anonymous sessions and retains request limits',async t=>{
+  const publicEnv={...env};delete publicEnv.APP_PASSWORD;
+  let providerCalls=0;
+  const provider=async(url,options)=>{
+    providerCalls++;assert.equal(options.headers.Authorization,'Bearer '+env.OPENAI_API_KEY);
+    if(url.includes('/models/'))return Response.json({id:env.OPENAI_MODEL});
+    return new Response('data: '+JSON.stringify({type:'response.completed',response:{status:'completed',usage:{input_tokens:12,output_tokens:8,total_tokens:20},output:[{type:'message',content:[{type:'output_text',text:'Respuesta pública de prueba'}]}]}})+'\n\n');
+  };
+  const one=await instance(t,publicEnv,provider,true),two=await instance(t,{...publicEnv,APP_PASSWORD:''},provider,true);
+  const start=await one('/api/session');
+  assert.equal(start.status,200);assert.equal(start.data.connected,true);
+  assert.equal(start.data.authRequired,false);assert.equal(start.data.protected,false);
+  assert.equal(start.data.models[0].slug,env.OPENAI_MODEL);
+  assert.match(start.headers['set-cookie'][0],/HttpOnly; SameSite=Strict.*Secure/);
+  for(let i=0;i<3;i++){
+    const repeat=await one('/api/session',undefined,start.cookie);
+    assert.equal(repeat.data.connected,true);assert.equal(repeat.cookie,undefined,'An anonymous session is reused, not replaced on each request');
+  }
+  const other=await two('/api/session',undefined,start.cookie);
+  assert.equal(other.data.connected,true);assert.equal(other.data.authRequired,false);
+  assert.equal((await two('/api/session',undefined,other.cookie)).cookie,undefined);
+  assert.equal((await two('/api/check',{},other.cookie)).status,200);
+  assert.equal((await two('/api/check',{},other.cookie,{Origin:'https://untrusted.invalid'})).status,403);
+  assert.equal((await two('/api/session',undefined,other.cookie,{Host:'untrusted.invalid'})).status,403);
+  for(let i=0;i<20;i++){
+    const tutor=await two('/api/tutor',input,other.cookie);
+    assert.equal(tutor.status,200);assert.equal(tutor.data.text,'Respuesta pública de prueba');
+  }
+  assert.equal((await two('/api/tutor',input,other.cookie)).status,429);assert.equal(providerCalls,21);
+  const meter=await two('/api/usage',undefined,other.cookie);
+  assert.equal(meter.status,200);assert.equal(meter.data.totalTokens,400);
+  assert.ok(!JSON.stringify([start.data,meter.data]).includes(env.OPENAI_API_KEY));
+  const missingKey=await instance(t,{...publicEnv,OPENAI_API_KEY:''});
+  const missing=await missingKey('/api/session');
+  assert.equal(missing.data.configured,false);assert.equal(missing.data.connected,false);assert.equal(missing.data.authRequired,false);
+  assert.equal((await missingKey('/api/check',{},missing.cookie)).status,503);
 });
 
 test('signed sessions reject expiry, altered claims, changed audience and malformed tokens',()=>{
