@@ -13,6 +13,9 @@ datos/
 
 # Herramientas para regenerar las capturas del manual
 node_modules/
-package-lock.json
-package.json
+.local/
+.env
+.env.*
+!.env.example
+test-results/
 manual/perfil-*/

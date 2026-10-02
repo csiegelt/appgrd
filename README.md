@@ -2,7 +2,7 @@
 
 **Herramienta docente para alumnos del Magíster · Sistema de Salud · Universidad de los Andes (UANDES).**
 
-Aplicación web local (HTML + CSS + JavaScript, sin dependencias) para analizar egresos hospitalarios bajo el mecanismo de pago por **Grupos Relacionados por el Diagnóstico (IR-GRD)** usado por MINSAL y FONASA.
+Aplicación de estudio por asignaturas y análisis de egresos hospitalarios bajo el mecanismo de pago por **Grupos Relacionados por el Diagnóstico (IR-GRD)** usado por MINSAL y FONASA. La biblioteca y los cálculos funcionan con HTML, CSS y JavaScript; el tutor IA utiliza **la API de OpenAI mediante un servidor Node.js**, en local o en un hosting. Configura la clave en `.env` siguiendo los pasos de abajo.
 
 ```
 Pago del egreso = Precio base × Peso relativo del GRD
@@ -11,11 +11,174 @@ Resultado       = Pago − Costo total asignado
 
 ## Uso
 
-**Manual de ayuda:** [manual/index.html](manual/index.html) — guía paso a paso de cada módulo, con capturas y datos de ejemplo. También se abre desde la pestaña *Manual de ayuda* de la aplicación.
+La app abre en **Asignaturas**, con tarjetas para entrar a cada materia o agregar otra. Cada asignatura muestra primero sus contenidos; las herramientas se abren dentro del contenido elegido.
 
-Abrir `index.html` en Chrome o Edge. No requiere servidor ni conexión a internet. Los datos se guardan sólo en el navegador (localStorage); use *Parámetros → Descargar respaldo* para exportarlos.
+```text
+Inicio · Asignaturas
+└─ Sistemas de Salud
+   ├─ Estudio para la prueba
+   │  └─ Temas, guías, tarjetas, autoevaluación, casos prácticos y tutor IA
+   └─ GRD
+      └─ Resumen, distribución, egresos, simulador, licitaciones y demás herramientas
+```
+
+Las nuevas asignaturas tienen su propio espacio de **Estudio para la prueba**. GRD pertenece a **Sistemas de Salud** y sus pestañas aparecen solo al entrar en ese contenido. Usa la ruta de navegación para volver a la asignatura y **Inicio** para ver todas las materias. Los apuntes y avances existentes se conservan.
+
+### Estudiar por asignaturas
+
+- **Sistemas de Salud:** texto de los 14 capítulos del guion de las clases 1 a 6, guías con objetivos e ideas clave, 37 preguntas con explicación y 11 casos guiados. Ocho casos nuevos te sitúan como director/a de hospital; sus escenarios son ficticios y aplican los conceptos del guion. Las cifras del documento conservan su contexto histórico.
+- **Tarjetas:** revelar respuestas, marcar lo aprendido y filtrar lo pendiente.
+- **Autoevaluación:** preguntas y alternativas en orden aleatorio, corrección inmediata, explicación, repaso de errores e historial. Las tarjetas con preguntas abiertas se autoevalúan contra su respuesta elaborada y su explicación.
+- **Práctica IA:** crea seis preguntas nuevas desde la asignatura o el tema seleccionado, con dificultad básica, intermedia o avanzada. Puedes elegir **Conceptos y aplicación** o **Casos: director/a de hospital**. En los casos, una situación ficticia plantea restricciones y decisiones; la explicación justifica la prioridad, compara alternativas y aborda responsables, recursos, indicadores y riesgos. Se responde una pregunta por pantalla, con explicación y opción de repetir los errores. La generación requiere una clave de API configurada en el servidor; si falta, se muestran instrucciones para habilitarla.
+- **Casos prácticos:** elige una situación o pide un caso al azar. Escribe tu plan por etapas, contrástalo con una solución razonada y usa **Llevar mi plan al tutor** para preparar una conversación sobre tus decisiones. La selección y las respuestas quedan guardadas. Los casos abarcan primeros 30 días de dirección, listas de espera y pabellones, déficit GRD, comparación de hospitales, reingresos, ausentismo, medicamentos y evaluación de una tecnología. Se reconocen alternativas justificadas; las respuestas orientadoras no son protocolos clínicos ni atribuciones legales nuevas.
+- **Casos nuevos con IA:** dentro de **Casos prácticos**, pulsa **Generar caso nuevo con IA**. Elige un tema o déjalo al azar y selecciona dificultad básica, intermedia o avanzada. Se crea un escenario ficticio con rol, restricciones y tres etapas: diagnóstico, decisión y seguimiento. Cada etapa permite escribir una respuesta y abrir su orientación. En Sistemas de Salud se practica como director/a de hospital; en otras asignaturas el rol se adapta al material. La opción **Sortear caso incluido** sigue disponible para los casos originales, sin consumir API.
+- **Sesión de casos IA:** los casos generados se consultan en una lista separada y se mantienen al navegar por la página. Sus respuestas son temporales: no se guardan en localStorage, respaldos, exportaciones ni en el servidor de la app; se descartan al recargar o cerrar la página. Puedes llevar el caso y tu plan al tutor para conversar. Los casos incluidos conservan su guardado local habitual. No se añaden automáticamente casos de IA al material común.
+- **Tutor:** conversación con contexto de los apuntes, pistas, ejemplos y preguntas una a una. Puede usar búsqueda web con citas cuando el modelo y los permisos de la cuenta lo permiten. También permite guardar preguntas generadas dentro de la misma asignatura, como contenido personal de este navegador, sin crear otra tarjeta.
+- **Más asignaturas:** desde **Inicio → Agregar asignatura**, pegar texto o cargar `.txt`/`.md`. **Guardar y generar con IA** conserva primero el texto y después genera un objetivo, de dos a seis ideas explicadas y de tres a ocho tarjetas con preguntas concretas, respuestas breves y explicaciones. **Guardar solo texto** permite hacerlo sin consumir API. Si falta acceso, saldo o conexión, el tema queda pendiente y se puede reintentar desde su guía. Ya no se fabrican tarjetas recortando párrafos. También puedes agregar temas a una asignatura existente e importar o exportar asignaturas JSON.
+- **Mejorar tarjetas antiguas:** abre un tema o **Tarjetas** y pulsa **Generar guía y tarjetas con IA**; en Tarjetas puedes elegir el tema. Los recortes de versiones anteriores se ocultan de la práctica y se reemplazan al completar la generación. El botón reemplaza sus propias tarjetas anteriores sin duplicarlas; conserva el texto, los apuntes y las preguntas incorporadas por otras vías. Si la generación o el guardado falla, el material anterior permanece. Las guías y tarjetas nuevas se guardan en el navegador y se incluyen en respaldos y exportaciones. El avance de las tarjetas sustituidas no se asigna a las preguntas nuevas.
+- **Fundamento de las tarjetas:** al revelar una tarjeta de IA, puedes abrir **Ver fundamento en el texto**. El servidor comprueba que la cita sea un fragmento literal de los apuntes y rechaza fuentes inexistentes, preguntas duplicadas o material incompleto. Esta comprobación ayuda a revisar el contenido, pero no garantiza por sí sola la corrección de todas las interpretaciones: contrasta la explicación con el tema. La generación trabaja un tema completo por solicitud, sin búsqueda web, y se registra en el contador de tokens.
+- **Respaldo:** Sistemas de Salud → GRD → Parámetros → Descargar respaldo incluye asignaturas, apuntes, avances e historial. Los datos son locales a cada navegador; no se sincronizan entre el computador y el celular. La conversación con el tutor es temporal y no se incluye en el respaldo.
+
+**Una tarjeta por asignatura:** agregar temas o guardar preguntas de IA mantiene la tarjeta original de Sistemas de Salud y su acceso a GRD. Las copias automáticas antiguas «Sistemas de Salud · Mi práctica IA» y «Sistemas de Salud · Mis apuntes» se reúnen al cargar la app, conservando sus preguntas, temas, respuestas de casos, apuntes, progreso e historial. Si hay dos apuntes distintos para un tema, se mantienen ambos en el texto. Antes de unificar se guarda el estado anterior en la clave local `grd-estudio-antes-unificar-v1`; si no se puede escribir el respaldo o el estado nuevo, las copias anteriores permanecen. Las asignaturas creadas o importadas de forma independiente no se fusionan solo por tener un nombre parecido.
+
+### Activar el tutor con la API de OpenAI
+
+Requiere Node.js 22 o superior, una [clave de proyecto de OpenAI](https://platform.openai.com/api-keys) y facturación de API habilitada. Las consultas se cobran al proyecto asociado a esa clave, por separado del plan de ChatGPT. Revisa el [consumo](https://platform.openai.com/usage) y los [precios de la API](https://developers.openai.com/api/docs/pricing).
+
+En PowerShell, desde este equipo:
+
+```powershell
+cd C:\Users\Galye\Maicho\appgrd\repo
+npm.cmd ci
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+notepad .env
+```
+
+En `.env`, completa `OPENAI_API_KEY` con tu clave. El modelo inicial es `gpt-4.1-mini`; puedes cambiar `OPENAI_MODEL` por otro modelo de tu proyecto compatible con Responses, salidas estructuradas y, si la usas, búsqueda web. No compartas la clave ni la pegues en el chat del tutor. El servidor carga `.env` al iniciar; las variables del entorno tienen prioridad. Después de modificarlo, detén el servidor anterior con `Ctrl+C` y ejecuta:
+
+```powershell
+npm.cmd start
+```
+
+Abre `http://127.0.0.1:8787` y recarga con `Ctrl+F5`. Entra en **Sistemas de Salud → Estudio para la prueba → Tutor IA**. La etiqueta **API configurada** indica que el servidor tiene una clave. Pulsa **Comprobar conexión API** para validar la clave y el acceso al modelo; esa comprobación no genera texto ni verifica saldo. Envía una consulta breve para comprobar la generación real. Ya no se utiliza el botón «Continuar con ChatGPT».
+
+La clave se utiliza solo en el servidor y nunca se entrega al navegador, a localStorage ni a los respaldos. `.env` queda excluido de Git y de las rutas públicas. Se llama a `https://api.openai.com/v1/responses` con `store: false`, historial explícito y un máximo de 8.000 tokens de salida. Las seis preguntas usan un esquema JSON; la búsqueda web está desactivada por defecto y solo se ofrece en conversación cuando la habilitas. La app limita la generación a dos solicitudes simultáneas y 20 por minuto por instancia.
+
+La generación de casos utiliza otro esquema de [salida estructurada, según OpenAI Docs](https://developers.openai.com/api/docs/guides/structured-outputs), con un tema fuente válido y tres etapas completas. Cada solicitud combina variaciones de restricciones y plazos con el tema elegido; en modo aleatorio evita repetir el último tema si hay otros disponibles. Recibe hasta 30 casos anteriores como referencia para evitar repeticiones y rechaza coincidencias exactas con esas referencias, aunque esto no garantiza que nunca se repitan conceptos. No utiliza búsqueda web. Cada generación consume tokens y actualiza el contador; ante errores o falta de saldo se conservan los casos y respuestas anteriores mientras la página siga abierta.
+
+Referencias de OpenAI: [autenticación de API](https://developers.openai.com/api/reference/overview#authentication), [modelo inicial](https://developers.openai.com/api/docs/models/gpt-4.1-mini), [salidas estructuradas](https://developers.openai.com/api/docs/guides/structured-outputs) y [búsqueda web](https://developers.openai.com/api/docs/guides/tools-web-search).
+
+### Contador de tokens y avisos en Inicio
+
+La tarjeta **Tokens de la API** muestra el consumo de entrada y salida registrado por esta app, los tokens de la última consulta y la disponibilidad que OpenAI informó en la última respuesta. Si el hosting protege el tutor con contraseña, debes ingresar al tutor para consultar esos datos.
+
+- **Usados en esta app:** suma los tokens que OpenAI reporta desde la fecha indicada en el detalle. Incluye preguntas generadas, conversaciones y respuestas que consumieron tokens aunque no pudieran mostrarse completas. Las consultas sin datos se señalan como consumo no informado; no se cuentan como cero.
+- **Disponibles en la última consulta:** corresponde a los [límites temporales de tokens](https://developers.openai.com/api/docs/guides/rate-limits), que se renuevan. Si también hay un límite del proyecto, se muestra la menor disponibilidad informada. Una lectura cuyo intervalo terminó queda identificada como anterior; la app no inventa un nuevo número disponible. Si no llegaron los encabezados, aparece **Sin lectura**.
+- **Saldo y facturación:** la disponibilidad temporal no representa créditos monetarios ni una bolsa total de tokens comprados. El saldo se consulta en OpenAI Platform mediante el enlace de la tarjeta. No se estima dinero a partir de los tokens.
+- **Sin saldo o cuota:** si una consulta recibe un error de créditos agotados, cuota insuficiente o límite de gasto, aparece una alerta roja junto al mensaje y en Inicio. La consulta fallida conserva su borrador mientras permanezcas en la app. La alerta se elimina cuando una consulta posterior vuelve a responder; comprobar acceso al modelo no confirma que haya saldo.
+- **Límite temporal:** un error de velocidad o de tokens por intervalo pide esperar y reintentar, sin informar que se agotó el saldo. OpenAI documenta estas diferencias en [límites de gasto](https://developers.openai.com/api/docs/guides/spend-limits).
+
+**Actualizar** relee el contador del servidor y no genera llamadas de pago. También se actualiza después de cada consulta y al volver a Inicio. El registro se conserva en `.local/api-usage.json`, excluido de Git y de las rutas públicas; almacena cifras, fechas y estado, sin guardar claves, preguntas ni respuestas. Al cambiar de clave comienza un nuevo registro. No incluye llamadas de otras aplicaciones, consultas anteriores a esta función ni el respaldo de apuntes del navegador. En un hosting con disco efímero, el registro se reinicia al perderse ese archivo; conserva `.local` en almacenamiento persistente para mantenerlo entre despliegues.
+
+| Mensaje | Qué revisar |
+|---|---|
+| Falta configurar la API | Completa `OPENAI_API_KEY` en `.env` o en el hosting y reinicia el servidor. |
+| La clave es inválida o fue revocada | Crea o corrige la clave de proyecto y reinicia. |
+| La API no tiene saldo | Revisa la facturación y el límite de gasto del proyecto de API. |
+| Modelo no disponible | Revisa `OPENAI_MODEL` y los permisos del proyecto. |
+| Límite de solicitudes | Espera un momento antes de volver a enviar. |
+| No se encontró el servicio de la API | Abre la URL del servidor Node.js; GitHub Pages y `index.html` directamente no ejecutan el tutor. |
+| Sigue apareciendo la conexión anterior | Detén el proceso Node anterior, inicia esta versión y recarga con `Ctrl+F5`. |
+
+### Verificación
+
+```sh
+npm test
+npm run test:ui
+```
+
+Las pruebas del servidor comprueban el envío autenticado a Responses, las preguntas estructuradas, los errores de clave/saldo/modelo, la contraseña de acceso, los límites y la protección de secretos y rutas. También verifican el contador persistente, consumo incompleto, encabezados ausentes o con cero tokens y recuperación tras agotar cuota. Las pruebas de interfaz usan Edge instalado en Windows (o `CHROME_PATH`) a 390 y 1280 píxeles: verifican navegación, conservación de apuntes, configuración pendiente, ingreso al tutor, generación de casos, contador y alerta de saldo. **OpenAI se sustituye por respuestas simuladas en las pruebas**, sin claves reales ni consumo. Las capturas y perfiles quedan en `test-results/`, excluido de Git.
+
+Los casos IA se prueban con autenticación, rechazo de formatos incompletos y fuentes inventadas, consumo contabilizado incluso si el contenido no es válido, recuperación de cuota, cambio de tema, separación por asignatura y descarte al recargar. La interfaz también comprueba que los casos incluidos y sus respuestas se conserven, y que llevar un plan temporal al tutor use el tema correcto.
+
+Las guías y tarjetas se prueban con evidencia literal, formato completo, guardado del texto cuando falta la API, sustitución de recortes antiguos, conservación de apuntes y preguntas propias, regeneración sin duplicados y recuperación tras errores o falta de saldo. El exportado/importado conserva el fundamento y el origen de las tarjetas de IA.
+
+**Manual de ayuda:** [manual/index.html](manual/index.html) — guía paso a paso de las herramientas GRD, con capturas y datos de ejemplo. También se abre desde **Sistemas de Salud → GRD → Manual de ayuda**.
+
+Para usar la biblioteca y los cálculos sin IA, basta abrir `index.html` en Chrome o Edge: esas funciones no requieren servidor ni conexión a internet. Los datos se guardan en el navegador (localStorage); use *Parámetros → Descargar respaldo* para exportarlos. El tutor requiere el servidor Node.js, internet y una clave de API con saldo disponible.
+
+### Cómo probar esta versión
+
+En PowerShell, desde este equipo:
+
+```powershell
+cd C:\Users\Galye\Maicho\appgrd\repo
+npm.cmd ci
+npm.cmd start
+```
+
+Abre `http://127.0.0.1:8787`. Si la app ya está abierta y responde, no hace falta iniciar un segundo servidor. Mantén la terminal abierta mientras estudias; `Ctrl+C` detiene el servicio que iniciaste allí. En PowerShell, usa `npm.cmd` si la política de ejecución bloquea `npm.ps1`; también aplica a `npm.cmd test` y `npm.cmd run test:ui`.
+
+1. En **Inicio**, abre **Sistemas de Salud**: verás **Estudio para la prueba** y **GRD**. Entra en **Estudio para la prueba** y abre un tema. Revisa su guía y el texto completo, escribe un apunte y recarga. Vuelve a entrar al tema para comprobar que se conservó.
+2. Prueba **Tarjetas** y **Autoevaluación**. Responde una alternativa, lee la explicación y completa la sesión para ver el resultado.
+3. Usa **Inicio → Agregar asignatura** para crear otra materia con un título y un texto de al menos 80 caracteres. Comprueba que aparece en el inicio con su propio contenido. Vuelve a **Sistemas de Salud → GRD**, abre el simulador y usa **← Sistemas de Salud** para regresar a los dos contenidos.
+4. En **Casos prácticos**, abre **Te nombran director: tus primeros 30 días**, escribe qué harías y compara cada etapa con la solución razonada. Cambia de caso y vuelve para comprobar el guardado. Con la API configurada, abre **Práctica IA**, selecciona dificultad y **Casos: director/a de hospital**, y pulsa **Comenzar práctica con preguntas nuevas**. Deben aparecer seis casos con decisiones y explicación después de cada respuesta. Completa la sesión y revisa los errores.
+5. En **Tutor IA**, envía una consulta sobre el texto. Para probar internet, activa **Permitir búsqueda web** y solicita explícitamente verificar un dato actual con fuentes. Si tu cuenta o modelo no admite la búsqueda, la app muestra el error recibido.
+6. Para revisar la vista móvil en el computador, abre las herramientas de desarrollo del navegador (`F12`) y activa la vista de dispositivos (`Ctrl+Shift+M`). La dirección `127.0.0.1` corresponde al propio dispositivo: abrirla en el teléfono no conecta con el computador.
+7. En **Casos prácticos**, pulsa **Generar caso nuevo con IA**, escribe tu decisión y abre una orientación. Genera otro caso y usa la lista **Casos IA de esta sesión** para volver al anterior. Cambia a **Casos incluidos** para comprobar que siguen disponibles. Al recargar, los casos IA y sus respuestas se descartan; los casos incluidos y sus apuntes permanecen.
+8. Crea una asignatura con un texto y pulsa **Guardar y generar con IA**. Revisa la guía, entra en **Practicar tarjetas**, revela una respuesta y consulta su fundamento. Para mejorar una asignatura antigua, abre su tema y usa **Generar guía y tarjetas con IA**. Recarga para comprobar que la guía, las tarjetas y tus apuntes siguen guardados, dentro de la misma asignatura.
+
+Las pruebas automáticas descritas arriba cubren los flujos locales y la integración con respuestas simuladas. Una consulta real después de configurar tu clave permite comprobar el acceso y el saldo de tu proyecto de OpenAI.
+
+### Publicar la biblioteca en GitHub Pages
+
+Este despliegue publica los temas, guías, tarjetas, autoevaluaciones, casos y calculadoras. **No ejecuta el tutor ni genera nuevas preguntas con IA dentro del sitio.** La generación integrada depende del servicio Node.js descrito antes.
+
+Desde la carpeta `repo`, revisa y sube los cambios:
+
+```powershell
+git status
+git add .gitignore .env.example .nojekyll README.md index.html css js lib package.json package-lock.json server.mjs tests
+git commit -m "Agrega estudio por asignaturas y tutor con API de OpenAI"
+git push origin main
+```
+
+Luego, en [la configuración de Pages del repositorio](https://github.com/csiegelt/appgrd/settings/pages):
+
+1. En **Build and deployment → Source**, selecciona **Deploy from a branch**.
+2. Selecciona **main**, carpeta **/(root)**, y pulsa **Save**.
+3. Revisa que el despliegue termine correctamente en **Actions**. La URL predeterminada esperada es `https://csiegelt.github.io/appgrd/`; confirma la dirección publicada en **Settings → Pages**.
+4. Abre esa dirección desde el celular y comprueba la navegación, las tarjetas y el guardado de apuntes. Los avances locales del computador no se transfieren automáticamente: usa el respaldo si quieres llevarlos al navegador del teléfono.
+
+El archivo `.nojekyll` permite publicar directamente los archivos estáticos. Estos pasos siguen la [documentación de GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site). Las actualizaciones que subas a `main` se volverán a publicar una vez configurada esa rama como fuente.
+
+### Publicar también el tutor IA para celular
+
+Publica **el servidor y la interfaz juntos** en un servicio que ejecute Node.js 22 o superior detrás de HTTPS. El repositorio no necesita un paso de compilación. En este equipo el proyecto está en `repo`; en GitHub, `package.json` está en la raíz del repositorio.
+
+1. Conecta el repositorio al servicio Node.js que uses y selecciona su rama.
+2. Comando de instalación: `npm ci --omit=dev`. Comando de inicio: `npm start`.
+3. Configura estas variables en el panel del hosting (guarda las claves como secretos):
+
+| Variable | Valor |
+|---|---|
+| `OPENAI_API_KEY` | Tu clave de proyecto de OpenAI. |
+| `OPENAI_MODEL` | `gpt-4.1-mini` u otro modelo compatible al que tengas acceso. |
+| `HOST` | `0.0.0.0` |
+| `APP_ORIGIN` | URL HTTPS exacta del sitio, por ejemplo `https://tu-app.example.com`, sin rutas. |
+| `APP_PASSWORD` | Contraseña propia de al menos 16 caracteres para entrar al tutor. Distinta de la clave de API. |
+| `PORT` | El valor que asigne el hosting. |
+
+4. El proxy del hosting debe conservar el encabezado `Host` del dominio configurado y permitir solicitudes de hasta tres minutos. Si cambias de dominio, actualiza `APP_ORIGIN` y reinicia. La ruta `/` sirve para comprobar que el servicio está activo.
+5. Abre la URL HTTPS desde el celular. Entra al tutor con `APP_PASSWORD`, comprueba la conexión y envía una consulta breve.
+
+La biblioteca permanece accesible; la contraseña protege los endpoints del tutor que usan la clave. Todos los usuarios autorizados consumen el proyecto de API configurado. Las sesiones duran ocho horas, usan cookies HttpOnly/SameSite/Secure y se invalidan al cerrar acceso o reiniciar el servidor. Esta modalidad es para uso personal o de un grupo pequeño con contraseña compartida, con una sola instancia Node; no implementa cuentas individuales ni sincronización de apuntes entre dispositivos. El servidor exige HTTPS y contraseña al escuchar públicamente.
+
+Las pruebas locales no publican el sitio. El despliegue requiere subir los cambios y configurar las variables en tu hosting; **GitHub Pages por sí solo no ejecuta esta API**.
 
 ## Funcionalidades
+
+Herramientas disponibles dentro de **Sistemas de Salud → GRD**:
 
 | Pestaña | Contenido |
 |---|---|
@@ -62,6 +225,13 @@ js/alumno.js        modo alumno: ejercicios con corrección automática
 js/caso.js          modo alumno: análisis explicado de un caso clínico
 js/licitacion.js    análisis de licitaciones GRD por tramos de peso
 js/app.js           estado, persistencia y render de pestañas
+js/estudio.js       asignaturas, estudio y tutor IA
+js/estudio-contenido.js  guías, preguntas y casos de Sistemas de Salud
+js/estudio-fuente.js texto docente de las clases 1 a 6
+server.mjs          servidor web y acceso a la API de OpenAI
+lib/                instrucciones del tutor, esquema de preguntas y errores de API
+.env.example        plantilla de configuración (la clave real va en .env)
+tests/              pruebas del servidor, contenido e interfaz
 plantillas/         plantilla CSV de importación
 manual/             manual de ayuda (index.html), capturas (img/) y script que las genera
 ```

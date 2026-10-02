@@ -17,6 +17,7 @@ const DEFAULT_PARAMS = {
 let state = { params: { ...DEFAULT_PARAMS }, catalogo: [], egresos: [], distBench: {} };
 let catMap = new Map();
 let currentTab = 'dashboard';
+let examplesNoticePending = false;
 const sortState = {};
 const dist = { sel: null, evalValue: null };
 
@@ -34,7 +35,7 @@ function load() {
   } else {
     state.catalogo = CATALOGO_EJEMPLO.map(c => ({ ...c }));
     state.egresos = generarEgresosEjemplo();
-    setTimeout(() => toast('Se cargaron datos de EJEMPLO. Reemplácelos con sus egresos y la norma vigente.'), 400);
+    examplesNoticePending = true;
   }
   rebuildCat();
 }
@@ -113,16 +114,23 @@ function renderTable(tbl, cols, rows, rerender) {
 
 // ---------------- pestañas ----------------
 function setTab(tab) {
+  const enteringGRD = currentTab === 'estudio' && tab !== 'estudio';
   currentTab = tab;
+  $('tabs').hidden = tab === 'estudio';
+  $('grd-context').hidden = tab === 'estudio';
+  if (tab === 'estudio') $('toast').classList.remove('show');
+  if (tab !== 'estudio') $('app-home').removeAttribute('aria-current');
+  if (tab !== 'estudio' && examplesNoticePending) { toast('Se cargaron datos de EJEMPLO. Reemplácelos con sus egresos y la norma vigente.'); examplesNoticePending = false; }
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
   $('filters').hidden = !['dashboard', 'distribucion'].includes(tab);
   render();
+  if (enteringGRD) window.scrollTo({ top: 0, behavior: 'instant' });
 }
 function render() {
   refreshFilterOptions();
   ({
-    dashboard: renderDashboard, distribucion: renderDistribucion, egresos: renderEgresos,
+    dashboard: renderDashboard, distribucion: renderDistribucion, egresos: renderEgresos, estudio: Estudio.render,
     // el precio base por defecto se carga sólo al abrir la pestaña (no mientras el alumno borra el campo para escribir)
     simulador: () => { if ($('s-pb').value === '') $('s-pb').value = fmtIn(state.params.precioBase, 'money'); renderSim(); }, licitacion: Licitacion.render, alumno: Alumno.render, catalogo: renderCatalogo, parametros: renderParams, guia: () => {}
   })[currentTab]();
@@ -602,6 +610,8 @@ function renderParams() {
 function onFilterChange() { dist.sel = null; render(); }
 
 function bind() {
+  $('app-home').onclick = () => Estudio.openLibrary();
+  $('grd-subject').onclick = () => Estudio.openSubject('sistemas-salud');
   $('tabs').addEventListener('click', e => { if (e.target.dataset.tab) setTab(e.target.dataset.tab); });
   ['f-cdm', 'f-sev', 'f-serv', 'f-out', 'f-desde', 'f-hasta'].forEach(id => $(id).addEventListener('change', onFilterChange));
   $('f-clear').onclick = () => { ['f-cdm', 'f-sev', 'f-serv', 'f-out', 'f-desde', 'f-hasta'].forEach(id => $(id).value = ''); onFilterChange(); };
@@ -719,7 +729,7 @@ function bind() {
     save(); toast('Parámetros guardados');
   };
   // Respaldo completo: estado principal + licitación, caso clínico y Modo alumno (sus propias claves de localStorage).
-  const OTRAS = { alumno: 'grd-alumno-v1', caso: 'grd-caso-v1', licitacion: 'grd-licitacion-v1' };
+  const OTRAS = { alumno: 'grd-alumno-v1', caso: 'grd-caso-v1', licitacion: 'grd-licitacion-v1', estudio: 'grd-estudio-v1' };
   $('backup').onclick = () => {
     const r = { formato: 'respaldo-grd-v2', fecha: new Date().toISOString(), app: state };
     for (const k in OTRAS) { try { r[k] = JSON.parse(localStorage.getItem(OTRAS[k])); } catch (e) { r[k] = null; } }
@@ -747,4 +757,4 @@ bind();
 Alumno.init();
 Licitacion.init();
 Caso.init();
-setTab('dashboard');
+setTab('estudio');

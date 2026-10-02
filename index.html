@@ -3,20 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Análisis GRD · Magíster Sistema de Salud UANDES</title>
+  <title>Mi espacio de estudio · UANDES</title>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/estudio.css">
 </head>
 <body>
   <header class="topbar">
+    <div class="app-header">
     <div class="brand">
-      <span class="logo">GRD</span>
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 6c-3-2-6-2-10-1v14c4-1 7-1 10 1 3-2 6-2 10-1V5c-4-1-7-1-10 1Zm0 0v14"/></svg></span>
       <div>
-        <h1>Análisis de egresos GRD <span class="h1-tag">Para alumnos del Magíster · Sistema de Salud · UANDES</span></h1>
-        <p>Pago por Grupos Relacionados por el Diagnóstico (IR-GRD) · Chile · Herramienta docente — Universidad de los Andes</p>
+        <h1>Mi espacio de estudio <span class="h1-tag">Magíster · UANDES</span></h1>
+        <p>Asignaturas, práctica y herramientas para aprender.</p>
       </div>
     </div>
-    <nav class="tabs" id="tabs">
-      <button data-tab="dashboard" class="active">Resumen</button>
+    <button type="button" id="app-home" class="app-home" aria-label="Inicio: ver todas las asignaturas">Inicio</button>
+    </div>
+    <nav id="grd-context" class="app-breadcrumbs" aria-label="Ubicación de GRD" hidden>
+      <button type="button" id="grd-subject">← Sistemas de Salud</button><span aria-hidden="true">/</span><strong aria-current="page">GRD</strong>
+    </nav>
+    <nav class="tabs" id="tabs" aria-label="Herramientas de GRD" hidden>
+      <button data-tab="dashboard">Resumen</button>
       <button data-tab="distribucion">Distribución</button>
       <button data-tab="egresos">Egresos</button>
       <button data-tab="simulador">Simulador</button>
@@ -30,8 +37,9 @@
   </header>
 
   <main>
+    <section id="tab-estudio" class="tab" aria-label="Herramienta de estudio por asignaturas"></section>
     <!-- Filtros compartidos (Resumen y Distribución) -->
-      <div class="filters card" id="filters">
+      <div class="filters card" id="filters" hidden>
         <label>CDM <select id="f-cdm"><option value="">Todas</option></select></label>
         <label>Severidad <select id="f-sev">
           <option value="">Todas</option><option value="1">1 · Menor</option>
@@ -49,7 +57,7 @@
       </div>
 
     <!-- ================= RESUMEN ================= -->
-    <section id="tab-dashboard" class="tab active">
+    <section id="tab-dashboard" class="tab">
       <div class="kpis" id="kpis"></div>
 
       <div class="grid2">
@@ -67,11 +75,11 @@
       <div class="grid2">
         <div class="card">
           <h3>Por nivel de severidad</h3>
-          <div id="tbl-sev"></div>
+          <div id="tbl-sev" class="table-wrap" tabindex="0" role="region" aria-label="Tabla por nivel de severidad"></div>
         </div>
         <div class="card">
           <h3>GRD con mayor pérdida acumulada</h3>
-          <div id="tbl-top"></div>
+          <div id="tbl-top" class="table-wrap" tabindex="0" role="region" aria-label="Tabla de GRD con mayor pérdida"></div>
         </div>
       </div>
     </section>
@@ -494,7 +502,7 @@
           <button class="btn ghost" id="backup">Descargar respaldo completo (JSON)</button>
           <label class="btn ghost file">Restaurar respaldo <input type="file" id="restore" accept=".json"></label>
         </div>
-        <p class="hint">Todos los datos se guardan sólo en este navegador (localStorage). Nada se envía a internet. El respaldo incluye egresos, catálogo, parámetros, la pestaña Licitación GRD, el caso clínico y el historial del Modo alumno.</p>
+        <p class="hint">Los datos y avances se guardan en este navegador (localStorage). Al usar el tutor IA, se envían a OpenAI tu consulta y el material de estudio seleccionado. El respaldo incluye egresos, catálogo, parámetros, Licitación GRD, el caso clínico, el historial del Modo alumno y todas las asignaturas y sus avances de estudio.</p>
       </div>
     </section>
 
@@ -564,6 +572,9 @@
   <script src="js/alumno.js"></script>
   <script src="js/caso.js"></script>
   <script src="js/licitacion.js"></script>
+  <script src="js/estudio-fuente.js"></script>
+  <script src="js/estudio-contenido.js"></script>
+  <script src="js/estudio.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
