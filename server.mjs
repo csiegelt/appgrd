@@ -11,6 +11,7 @@ import { createUsageMeter } from './lib/usage.mjs';
 import { validateGeneratedCase } from './lib/cases.mjs';
 import { validateGeneratedMaterial } from './lib/material.mjs';
 import { sessionTokens } from './lib/session-token.mjs';
+import { validateGeneratedExam, examReviewPayload } from './lib/exam.mjs';
 export { collectResponse, tutorPayload } from './lib/tutor.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -84,8 +85,8 @@ export async function createApp({ env = process.env, fetchImpl = fetch, usageFil
     if (!s.authorized) throw new PublicError('Ingresa la contraseña de acceso al tutor.', 401);
     if (!configured) throw new PublicError('Falta OPENAI_API_KEY en el servidor. Agrégala en .env o en las variables del hosting y reinicia la app.', 503);
   }
-  async function openAI(path, options = {}, web = false) {
-    const response = await fetchImpl(RESOURCE + path, { ...options, headers: { ...options.headers, Authorization: 'Bearer ' + config.apiKey }, signal: AbortSignal.timeout(path === '/responses' ? 180000 : 30000) });
+  async function openAI(path, options = {}, web = false, timeout = path === '/responses' ? 180000 : 30000) {
+    const response = await fetchImpl(RESOURCE + path, { ...options, headers: { ...options.headers, Authorization: 'Bearer ' + config.apiKey }, signal: AbortSignal.timeout(timeout) });
     if (path === '/responses') meter.observeHeaders(response.headers);
     if (!response.ok) throw await apiError(response, web);
     return response;
@@ -137,14 +138,25 @@ export async function createApp({ env = process.env, fetchImpl = fetch, usageFil
           if (calls.count >= 20) throw new PublicError('Se alcanzó el límite de 20 consultas por minuto de esta app. Espera un momento.', 429);
           s.busy = true; active++; calls.count++;
           let accepted = false, recorded = false;
+          const deadline = Date.now() + 210000;
           try {
             const response = await openAI('/responses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, !!payload.tools);
             accepted = true;
-            const result = await collectResponse(response.body, usage => { recorded = true; meter.record(usage); });
+            let result = await collectResponse(response.body, usage => { recorded = true; meter.record(usage); });
+            if (data.generateExam) {
+              const firstUsage = result.usage;
+              const review = examReviewPayload(payload, result.text);
+              accepted = false; recorded = false;
+              const checked = await openAI('/responses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(review) }, false, Math.max(1, Math.min(180000, deadline - Date.now())));
+              accepted = true;
+              result = await collectResponse(checked.body, usage => { recorded = true; meter.record(usage); });
+              result.usage = firstUsage && result.usage ? Object.fromEntries([...new Set([...Object.keys(firstUsage), ...Object.keys(result.usage)])].map(key => [key, (firstUsage[key] || 0) + (result.usage[key] || 0)])) : null;
+            }
             meter.available();
             if (data.generate) result.text = validateGeneratedQuestions(result.text, data.context.lessons);
             if (data.generateCase) { result.case = validateGeneratedCase(result.text, data.context.lessons, data.avoidCases || []); delete result.text; }
             if (data.generateMaterial) { result.material = validateGeneratedMaterial(result.text, data.context.lessons); delete result.text; }
+            if (data.generateExam) { result.exam = validateGeneratedExam(result.text, data.context.lessons); delete result.text; }
             await meter.flush();
             json(res, 200, result);
           } catch (err) {

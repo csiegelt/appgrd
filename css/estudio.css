@@ -132,6 +132,24 @@
 .study-options .study-btn { text-align: left; justify-content: start; padding: 16px; }
 .study-result { border-radius: 22px; background: #e6f2eb; padding: 25px; margin-top: 20px; }
 .study-result-score { display: block; font-size: 54px; letter-spacing: -2px; color: #205947; }
+.study-exam-setup { border-top: 4px solid var(--study-teal); }
+.study-exam-setup label { display: grid; max-width: 320px; margin: 18px 0; }
+.study-exam-setup > .study-btn { width: 100%; }
+.study-exam-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 13px; margin: 14px 0; }
+.study-exam-meta > span { color: var(--study-muted); }
+.study-exam-nav { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
+.study-exam-nav .study-btn { min-width: 0; min-height: 44px; padding: 7px 0; border-radius: 9px; }
+.study-exam-nav .answered { background: #dcefe5; color: #205947; border-color: #83b49c; }
+.study-exam-nav [aria-current="step"] { outline: 3px solid #284d8d; outline-offset: 1px; }
+.study-exam-question h3 { font-size: clamp(18px, 3vw, 23px); line-height: 1.55; }
+.study-exam-question .study-options .study-btn { display: flex; align-items: start; gap: 12px; line-height: 1.5; }
+.study-exam-question .study-options .selected { background: #e9effb; color: #1e4077; border: 2px solid #426eb5; }
+.study-exam-letter { display: grid; place-items: center; flex: 0 0 27px; height: 27px; border: 1px solid currentColor; border-radius: 7px; font-weight: 700; }
+.study-exam-topics { list-style: none; padding: 0; margin: 0; }
+.study-exam-topics li { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #e3eae6; }
+.study-exam-topics strong { white-space: nowrap; }
+.study-exam-review summary { line-height: 1.6; }
+@media (max-width: 540px) { .study-exam-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); } .study-exam-question .study-options .study-btn { padding: 12px; gap: 9px; } }
 .study-case-step { border-top: 1px solid #e4ece7; padding-top: 20px; margin-top: 20px; }
 .study-case-step details { color: var(--study-teal); }
 .study-case-picker { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }

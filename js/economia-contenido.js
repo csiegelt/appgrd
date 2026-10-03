@@ -66,7 +66,7 @@ Ser una entidad sin fines de lucro se refiere a restricciones a la distribución
       'Ningún pago garantiza calidad: se necesitan medición, ajuste de riesgo y seguimiento de resultados.'
     ], `Secciones 5, 9.5, 9.6 y 11 del documento
 El paciente delega decisiones en un profesional; un directorio delega gestión en una dirección hospitalaria. El problema de agencia surge si los objetivos difieren y resulta difícil observar decisiones, esfuerzo o calidad.
-La función U = f(Y, L, P, Q) del apunte resume ingreso, ocio, prestigio y bienestar del paciente. La letra Q aquí significa calidad/bienestar, no cantidad de mercado. Es una representación de preferencias, no una fórmula numérica universal.
+La función U = f(Y, L, P, Q) del apunte representa la utilidad del médico: valora su ingreso, ocio, prestigio profesional y el bienestar del paciente. La letra Q aquí significa calidad/bienestar, no cantidad de mercado. Es una representación de preferencias, no una fórmula numérica universal.
 Pagos e incentivos
 Pago por servicio: el ingreso aumenta con prestaciones; existe riesgo de sobreprestación. Salario: facilita estabilidad; puede debilitar el incentivo al volumen. Capitación: monto por persona adscrita; incentiva controlar costos, con riesgo de subprestación y selección. Pago por desempeño: orienta hacia metas, con riesgo de descuidar lo no medido. Pago por caso/GRD: relaciona financiamiento con grupos de episodios y complejidad; puede incentivar controlar costos dentro del caso.
 Estos son riesgos posibles, no conductas inevitables. Mezclar mecanismos, ajustar por complejidad y medir calidad ayuda a equilibrarlos. Un reingreso no queda automáticamente sin pago en todo sistema GRD: depende de las reglas concretas.

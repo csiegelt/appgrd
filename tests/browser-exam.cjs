@@ -1,0 +1,88 @@
+// Browser workflow with mocked AI: no real credentials or billed generations.
+const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),{spawn}=require('node:child_process');
+(async()=>{
+ const server=spawn(process.execPath,['server.mjs'],{cwd:path.resolve(__dirname,'..'),env:{...process.env,PORT:'18793',HOST:'127.0.0.1',APP_ORIGIN:'',APP_PASSWORD:'',OPENAI_API_KEY:''},stdio:'pipe'});
+ await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('error',reject);server.once('exit',code=>reject(Error('Server exited: '+code)))});
+ let browser, page;
+ try{
+  browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+  page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.setViewport({width:390,height:844});
+  let requests=0,fail=false,hold=false,release,waiting,expectedTopics=11;
+  await page.setRequestInterception(true);
+  page.on('request',async req=>{
+   const url=new URL(req.url());if(!url.pathname.startsWith('/api/'))return req.continue();
+   let body={};
+   if(url.pathname==='/api/session')body={available:true,provider:'openai-api',configured:true,connected:true,authRequired:false,protected:false,models:[{slug:'test-model',display_name:'Test'}]};
+   if(url.pathname==='/api/usage')body={configured:true,model:'test-model',totalTokens:requests*300,rateLimits:[],quota:{state:'unknown'}};
+   if(url.pathname==='/api/tutor'){
+    requests++;const data=JSON.parse(req.postData());assert.equal(data.generateExam,true);assert.equal(data.generate,undefined);assert.equal(data.web,undefined);assert.equal(data.context.name,'Economía de la Salud');assert.equal(data.context.lessons.length,expectedTopics);
+    if(expectedTopics===12)assert.ok(data.context.lessons.some(l=>l.title==='Mi tema ingresado'&&l.text.includes('Contenido personal actualizado')));
+    if(hold)await new Promise(done=>{release=done;waiting()});
+    if(fail)return req.respond({status:502,contentType:'application/json',body:JSON.stringify({error:'La IA no entregó una prueba completa. Tu prueba anterior se conserva.'})});
+    body={exam:{questions:Array.from({length:30},(_,i)=>({prompt:`Ejercicio simulado ${i+1}: ¿cuál es la interpretación correcta del concepto?`,options:['Opción A','Opción B','Opción C','Opción D'],answerIndex:i%4,explanation:'Explicación reservada hasta entregar '+i,sourceTitle:data.context.lessons[i%11].title}))}};
+   }
+   return req.respond({status:200,contentType:'application/json',body:JSON.stringify(body)});
+  });
+  const tap=async selector=>{await page.$eval(selector,e=>e.scrollIntoView({block:'center'}));await page.click(selector)};
+  const click=async a=>tap(`#tab-estudio [data-action="${a}"]`);
+  const enter=async()=>{await page.click('[data-action="subject"][data-id="economia-salud"]');await click('exam')};
+  const attempt=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('grd-estudio-v1')).exams['economia-salud']);
+  const width=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'No horizontal overflow');
+  await page.goto('http://127.0.0.1:18793');await enter();
+  await page.waitForFunction(()=>document.querySelector('[data-action="generate-exam"]')?.disabled===false);
+  assert.equal(await page.$eval('#study-exam-threshold',e=>e.value),'0.6');
+  hold=true;const sent=new Promise(done=>{waiting=done});await click('generate-exam');await sent;
+  assert.equal(await page.$eval('[data-action="generate-exam"]',e=>e.disabled),true);
+  assert.equal(await page.$eval('#study-exam-threshold',e=>e.disabled),true);release();hold=false;
+  await page.waitForSelector('#study-exam-prompt');assert.equal(requests,1);
+  assert.equal(await page.$$eval('[data-action="exam-answer"]',els=>els.length),4);
+  assert.equal(await page.$$eval('[data-action="exam-jump"]',els=>els.length),30);
+  assert.equal(await page.$('#study-exam-result'),null);assert.equal(await page.$('.study-exam-review'),null);
+  assert.ok(!(await page.$eval('#tab-estudio',e=>e.textContent)).includes('Explicación reservada'));
+  await tap('[data-action="exam-answer"][data-index="1"]');await tap('[data-action="exam-answer"][data-index="0"]');
+  assert.equal((await attempt()).answers[0],0);
+  await page.reload();await enter();assert.equal(await page.$eval('[data-action="exam-answer"][data-index="0"]',e=>e.getAttribute('aria-pressed')),'true');
+  await click('exam-clear');assert.equal((await attempt()).answers[0],null);
+  const activeQuestions=(await attempt()).questions;
+  for(let i=0;i<25;i++){
+   await tap(`[data-action="exam-jump"][data-index="${i}"]`);
+   const correct=activeQuestions[i].answerIndex;
+   await tap(`[data-action="exam-answer"][data-index="${i<18?correct:(correct+1)%4}"]`);
+  }
+  await click('exam-pending');assert.equal((await attempt()).index,25);
+  fs.mkdirSync(path.resolve(__dirname,'../test-results'),{recursive:true});
+  for(const w of [320,390,768,1280]){await page.setViewport({width:w,height:900});await width()}
+  await page.setViewport({width:390,height:844});await page.screenshot({path:path.resolve(__dirname,'../test-results/prueba-mobile.png'),fullPage:true});
+  await click('exam-deliver');assert.match(await page.$eval('#study-exam-confirm',e=>e.textContent),/5 preguntas sin responder/);
+  await click('exam-cancel-delivery');assert.equal(await page.$('#study-exam-confirm'),null);
+  await click('exam-deliver');await click('exam-finish');
+  assert.equal(await page.$eval('#study-exam-result .study-result-score',e=>e.textContent),'4,0');
+  assert.match(await page.$eval('#study-exam-result',e=>e.textContent),/18 de 30 correctas/);
+  assert.match(await page.$eval('#study-exam-result',e=>e.textContent),/7 incorrectas · 5 omitidas/);
+  assert.equal(await page.$('[data-action="exam-answer"]'),null);
+  assert.equal(await page.$$eval('.study-exam-review',els=>els.length),30);
+  await page.click('.study-exam-review summary');assert.match(await page.$eval('.study-exam-review[open]',e=>e.textContent),/Explicación reservada/);
+  assert.equal(requests,1,'Answering and grading do not call AI');await width();
+  await page.screenshot({path:path.resolve(__dirname,'../test-results/prueba-nota-mobile.png'),fullPage:true});
+  await page.reload();await enter();await page.waitForSelector('#study-exam-result');
+  assert.equal(await page.$eval('#study-exam-result .study-result-score',e=>e.textContent),'4,0');
+  const history=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('grd-estudio-v1')).history.filter(h=>h.type==='exam'));
+  assert.equal((await history()).length,1);assert.equal((await history())[0].grade,4);
+  await page.waitForFunction(()=>document.querySelector('[data-action="generate-exam"]')?.disabled===false);
+  const previous=await attempt();fail=true;await click('generate-exam');
+  await page.waitForFunction(()=>document.querySelector('.study-notice')?.textContent.includes('prueba completa')&&!document.querySelector('[data-action="generate-exam"]').disabled);
+  assert.deepEqual(await attempt(),previous);assert.equal((await history()).length,1);
+  fail=false;expectedTopics=12;
+  await page.evaluate(()=>{const state=JSON.parse(localStorage.getItem('grd-estudio-v1'));let subject=state.subjects.find(s=>s.id==='economia-salud');if(!subject){subject=structuredClone(ECONOMIA_ASIGNATURA);state.subjects.push(subject)}subject.lessons.push({id:'my-exam-topic',title:'Mi tema ingresado',text:'Contenido personal actualizado para la siguiente prueba.',objective:'Comprender',summary:[],questions:[]});localStorage.setItem('grd-estudio-v1',JSON.stringify(state))});
+  await page.reload();await enter();await page.waitForFunction(()=>document.querySelector('[data-action="generate-exam"]')?.disabled===false);
+  await page.select('#study-exam-threshold','0.5');await click('generate-exam');await page.waitForSelector('#study-exam-prompt');
+  assert.equal((await attempt()).threshold,.5);assert.equal((await attempt()).answers.filter(a=>a!==null).length,0);
+  assert.notEqual((await attempt()).id,previous.id);assert.equal((await history()).length,1);
+  await click('exam-deliver');await click('exam-finish');assert.equal(await page.$eval('#study-exam-result .study-result-score',e=>e.textContent),'1,0');assert.equal((await history()).length,2);
+  await click('home');assert.match(await page.$eval('#tab-estudio',e=>e.textContent),/Nota 4,0/);
+  await click('library');await page.click('[data-action="subject"][data-id="sistemas-salud"]');assert.equal(await page.$('[data-action="exam"]'),null);
+  assert.deepEqual(errors,[]);console.log('PASS: 30-question AI exam, delayed feedback, grade, omissions, navigation, resume, immutable result, history, generation recovery and responsive 320–1280.');
+ }catch(error){if(page){await page.screenshot({path:path.resolve(__dirname,'../test-results/prueba-error.png'),fullPage:true});console.error(await page.$eval('#tab-estudio',e=>e.textContent.slice(0,1200)))}throw error}
+ finally{if(browser)await browser.close();server.kill()}
+})().catch(e=>{console.error(e);process.exitCode=1});
