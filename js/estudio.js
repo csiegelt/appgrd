@@ -42,6 +42,9 @@ const Estudio = (() => {
   const economicsID = EconomiaIntegracion.find(st)?.id || ECONOMIA_ASIGNATURA.id;
   const builtins = [SALUD_ASIGNATURA, CUANTITATIVAS_ASIGNATURA, { ...ECONOMIA_ASIGNATURA, id: economicsID }];
   const isEconomics = () => subject().id === economicsID;
+  // The hospital-director modality belongs to Sistemas de Salud; other subjects practice only their own concepts.
+  const directorMode = () => subject().id === 'sistemas-salud';
+  const styleFor = () => directorMode() ? practiceStyle : 'concepts';
   const subjects = () => [...builtins.map(b => st.subjects.find(s => s.id === b.id) || b), ...st.subjects.filter(s => !builtins.some(b => b.id === s.id))];
   const subject = () => subjects().find(s => s.id === st.selected) || SALUD_ASIGNATURA;
   const lesson = () => subject().lessons.find(l => l.id === st.lesson) || subject().lessons[0];
@@ -162,7 +165,7 @@ const Estudio = (() => {
   function openSubject(id) {
     if (busy) return;
     const s = subjects().find(s => s.id === id); if (!s) return;
-    if (st.selected !== s.id) { st.lesson = s.lessons[0]?.id; scope = null; materialTopic = ''; materialTarget = ''; quiz = null; chat = []; draft = ''; pendingPractice = false; }
+    if (st.selected !== s.id) { st.lesson = s.lessons[0]?.id; scope = null; materialTopic = ''; materialTarget = ''; quiz = null; chat = []; draft = ''; pendingPractice = false; practiceStyle = 'concepts'; }
     st.selected = s.id; view = 'subject'; editor = null; query = ''; status = ''; save(); render(); setTab('estudio'); window.scrollTo({ top: 0, behavior: 'instant' });
   }
   function libraryUI() {
@@ -450,7 +453,7 @@ const Estudio = (() => {
     busy = true; creatingCase = true; status = ''; statusPlace = 'general'; render();
     try {
       const data = await request('tutor', { model, generateCase: true, web: false, difficulty: session.difficulty, avoidCases,
-        practiceStyle: s.id === 'sistemas-salud' || s.cases.some(c => c.role === 'Director/a de hospital') ? 'hospital-director' : 'concepts',
+        practiceStyle: s.id === 'sistemas-salud' ? 'hospital-director' : 'concepts',
         context: { name: s.name, source: s.source, lessons: [{ title: l.title, text: l.text }] },
         messages: [{ role: 'user', content: 'Crea un caso práctico nuevo con tres etapas para que pueda decidir, escribir mi plan y compararlo con una solución razonada.' }] });
       const c = data.case;
@@ -563,9 +566,9 @@ const Estudio = (() => {
       <article class="study-panel">${connectionUI()}${statusPlace === 'connection' ? notice() : ''}<p class="study-footnote">Las consultas y búsquedas se facturan al proyecto de OpenAI configurado para esta app, por separado del plan de ChatGPT.</p></article><article class="study-panel">
       <label>Contexto del tutor<select id="study-ai-context"><option value="">Toda la asignatura</option>${subject().lessons.map(x => `<option value="${html(x.id)}" ${scope === x.id ? 'selected' : ''}>${html(x.title)}</option>`).join('')}</select></label>
       <label>Dificultad de las preguntas<select id="study-difficulty">${['básica','intermedia','avanzada'].map(d => `<option ${d === difficulty ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
-      <label>Tipo de práctica<select id="study-practice-style"><option value="concepts" ${practiceStyle === 'concepts' ? 'selected' : ''}>Conceptos y aplicación</option><option value="hospital-director" ${practiceStyle === 'hospital-director' ? 'selected' : ''}>Casos: director/a de hospital</option></select></label><p class="study-footnote">En los casos directivos tendrás que priorizar una acción ante una situación ficticia. La explicación abordará responsables, recursos, indicadores y riesgos.</p>
+      ${directorMode() ? `<label>Tipo de práctica<select id="study-practice-style"><option value="concepts" ${practiceStyle === 'concepts' ? 'selected' : ''}>Conceptos y aplicación</option><option value="hospital-director" ${practiceStyle === 'hospital-director' ? 'selected' : ''}>Casos: director/a de hospital</option></select></label><p class="study-footnote">En los casos directivos tendrás que priorizar una acción ante una situación ficticia. La explicación abordará responsables, recursos, indicadores y riesgos.</p>` : ''}
       <label class="study-check"><input id="study-web" type="checkbox" ${web ? 'checked' : ''}>Permitir búsqueda web cuando sea necesaria</label><p class="study-footnote">El tutor recibe el texto seleccionado al enviar tu consulta. La búsqueda es opcional, tiene costo de API y depende del modelo configurado; las respuestas muestran sus fuentes. Las preguntas de práctica se generan desde tus apuntes.</p>${button('begin-ai-practice', busy ? 'Creando preguntas…' : '✦ Comenzar práctica con preguntas nuevas', busy || !ai.connected || !subject().lessons.length ? 'disabled' : '')}${pendingPractice && !ai.connected ? '<p>Habilita el acceso a la API para comenzar la práctica interactiva.</p>' : ''}</article>
-      <div class="study-quick">${['Explícame el concepto con un ejemplo','Hazme una pregunta a la vez','Entrenar como director/a'].map((p, i) => button('quick-ai', html(p), `data-index="${i}"`, 'secondary')).join('')}${button('generate-ai', '✦ Crear preguntas para este tema', ` ${busy || !ai.connected || !l ? 'disabled' : ''}`, 'secondary')}</div>
+      <div class="study-quick">${['Explícame el concepto con un ejemplo','Hazme una pregunta a la vez','Entrenar como director/a'].slice(0, directorMode() ? 3 : 2).map((p, i) => button('quick-ai', html(p), `data-index="${i}"`, 'secondary')).join('')}${button('generate-ai', '✦ Crear preguntas para este tema', ` ${busy || !ai.connected || !l ? 'disabled' : ''}`, 'secondary')}</div>
       <div class="study-chat" role="log" aria-label="Conversación con el tutor">${chat.map(m => `<article class="study-message ${m.role}"><strong>${m.role === 'user' ? 'Tú' : 'Tutor'}</strong><div>${html(m.text)}</div>${(m.sources || []).map(s => /^https?:\/\//.test(s.url) ? `<a href="${html(s.url)}" target="_blank" rel="noopener">${html(s.title || s.url)} ↗</a>` : '').join('')}</article>`).join('')}${busy ? '<p role="status">El tutor está preparando tu respuesta…</p>' : ''}</div>
       ${quotaAlert()}${statusPlace === 'chat' && status !== apiUsage?.quota?.message ? notice() : ''}<form id="study-chat-form" class="study-composer"><label for="study-message">Tu pregunta<textarea id="study-message" rows="3" maxlength="6000" placeholder="¿Qué te gustaría comprender mejor?" ${busy ? 'disabled' : ''}>${html(draft)}</textarea></label><button class="study-btn" ${busy || !ai.connected || !model ? 'disabled' : ''}>Enviar →</button></form>${chat.length ? button('clear-chat', 'Nueva conversación', busy ? 'disabled' : '', 'secondary') : ''}`;
   }
@@ -579,7 +582,7 @@ const Estudio = (() => {
     if (!generate) chat.push(outgoing);
     render();
     try {
-      const data = await request('tutor', { model, web: generate ? false : web, practiceStyle, context: generate && !practice ? { name: capturedSubject.name, source: capturedSubject.source, lessons: [{ title: capturedLesson.title, text: capturedLesson.text }] } : context(), messages: generate ? [{ role: 'user', content: message }] : messages, generate });
+      const data = await request('tutor', { model, web: generate ? false : web, practiceStyle: styleFor(), context: generate && !practice ? { name: capturedSubject.name, source: capturedSubject.source, lessons: [{ title: capturedLesson.title, text: capturedLesson.text }] } : context(), messages: generate ? [{ role: 'user', content: message }] : messages, generate });
       if (generate) {
         const parsed = JSON.parse(data.text.replace(/^```(?:json)?\s*|\s*```$/g, ''));
         if (!Array.isArray(parsed.questions) || parsed.questions.length !== 6 || parsed.questions.some(q => !q.options)) throw Error('La IA debe devolver seis preguntas con alternativas. Inténtalo nuevamente.');
@@ -699,11 +702,11 @@ const Estudio = (() => {
     else if (a === 'cancel-editor') editor = null;
     else if (a === 'export-subject') { download('asignatura-estudio.json', JSON.stringify(subject(), null, 2), 'application/json'); return; }
     else if (a === 'tutor' || a === 'practice-ai') { scope = view === 'lesson' ? lesson()?.id : null; pendingPractice = a === 'practice-ai'; view = 'tutor'; render(); const before = JSON.stringify(ai); checkAI().then(() => { if (view === 'tutor' && JSON.stringify(ai) !== before) render(); }); return; }
-    else if (a === 'begin-ai-practice') { sendAI(`Crea seis preguntas nuevas de dificultad ${difficulty}, variadas y en orden aleatorio, basadas en el material. ${practiceStyle === 'hospital-director' ? 'Sitúame como director/a de hospital: describe una situación ficticia y pregúntame qué haría primero o qué plan elegiría. Incluye restricciones, alternativas plausibles y una explicación de la solución.' : 'Incluye aplicación y comprensión.'} Evita estas preguntas ya vistas: ${JSON.stringify((quiz?.ai ? quiz.items : []).map(q => q.prompt))}`, true, true); return; }
+    else if (a === 'begin-ai-practice') { sendAI(`Crea seis preguntas nuevas de dificultad ${difficulty}, variadas y en orden aleatorio, basadas en el material. ${styleFor() === 'hospital-director' ? 'Sitúame como director/a de hospital: describe una situación ficticia y pregúntame qué haría primero o qué plan elegiría. Incluye restricciones, alternativas plausibles y una explicación de la solución.' : 'Incluye aplicación y comprensión.'} Evita estas preguntas ya vistas: ${JSON.stringify((quiz?.ai ? quiz.items : []).map(q => q.prompt))}`, true, true); return; }
     else if (a === 'refresh-ai') { status = ''; checkAI().then(render); return; }
     else if (a === 'check-api') { busy = true; status = ''; statusPlace = 'connection'; render(); request('check', {}).then(data => { status = data.message; }).catch(err => { status = err.message; }).finally(() => { busy = false; render(); }); return; }
     else if (a === 'disconnect-ai') { busy = true; status = ''; statusPlace = 'connection'; render(); request('logout', {}).then(() => { chat = []; draft = ''; return checkAI(); }).catch(err => { status = err.message; }).finally(() => { busy = false; render(); }); return; }
-    else if (a === 'quick-ai') { if (Number(b.dataset.index) === 2) practiceStyle = 'hospital-director'; draft = ['Explícame el concepto con un ejemplo','Hazme una pregunta a la vez y espera mi respuesta antes de corregirme','Me nombraron director/a de un hospital. Plantea un caso ficticio basado en el tema seleccionado, con un problema y recursos limitados. Pregúntame qué haría primero y espera mi respuesta. Luego evalúa mi razonamiento, explica alternativas y agrega una nueva dificultad. No reveles la solución antes de que responda.'][Number(b.dataset.index)]; }
+    else if (a === 'quick-ai') { if (Number(b.dataset.index) === 2 && directorMode()) practiceStyle = 'hospital-director'; draft = ['Explícame el concepto con un ejemplo','Hazme una pregunta a la vez y espera mi respuesta antes de corregirme','Me nombraron director/a de un hospital. Plantea un caso ficticio basado en el tema seleccionado, con un problema y recursos limitados. Pregúntame qué haría primero y espera mi respuesta. Luego evalúa mi razonamiento, explica alternativas y agrega una nueva dificultad. No reveles la solución antes de que responda.'][Number(b.dataset.index)]; }
     else if (a === 'generate-ai') { sendAI('Elabora 6 preguntas de selección múltiple basadas exclusivamente en este tema.', true); return; }
     else if (a === 'clear-chat') { chat = []; draft = ''; }
     render();

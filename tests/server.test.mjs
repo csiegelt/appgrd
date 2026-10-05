@@ -197,6 +197,13 @@ test('SSE parsing requires completion and preserves citations across split chunk
   await assert.rejects(collectResponse(Readable.from([Buffer.from('data: {"type":"response.failed"}\n\n')])), err => err.status === 502);
 });
 
+test('every request limits the AI to the active subject material', () => {
+  const payload = tutorPayload({ ...input, generate: true }, [{ slug: input.model }]);
+  assert.match(payload.instructions, /Trabaja solo con la asignatura indicada en el MATERIAL DE REFERENCIA/);
+  assert.doesNotMatch(payload.instructions, /sistemas y gestión en salud/);
+  assert.match(payload.input[0].content, /^MATERIAL DE REFERENCIA de Salud/);
+});
+
 test('the token counter is visible locally and hidden on public hosting unless APP_SHOW_USAGE=1', () => {
   assert.equal(serverConfig({}).showUsage, true);
   assert.equal(serverConfig({ HOST: '0.0.0.0', APP_ORIGIN: 'https://estudio.example.cl' }).showUsage, false);
