@@ -32,6 +32,10 @@ const Estudio = (() => {
   let creatingCase = false;
   let materialTopic = '', materialTarget = '', materialRunning = false;
   let examLoaded = false, examThreshold = 0.6, examConfirm = false, creatingExam = false;
+  let examCount = PruebaEstudio.sizes.includes(st.examCount) ? st.examCount : 10;
+  // The question bank runs locally; sessions live only while the page is open.
+  const bankSource = typeof BANCO_ECONOMIA === 'undefined' ? [] : BANCO_ECONOMIA;
+  let bank = { topic: '', session: null };
   const tokenNumber = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString('es-CL') : '—';
   const usageDate = value => value ? new Date(value).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : 'Sin consultas';
   const root = () => document.getElementById('tab-estudio');
@@ -44,6 +48,7 @@ const Estudio = (() => {
   const progressKey = id => `${subject().id}/${id}`;
   const progress = id => st.progress[progressKey(id)] || {};
   const questions = () => subject().lessons.flatMap(l => l.questions.filter(q => !isExtract(q)).map(q => ({ ...q, lesson: l.id, topic: l.title })));
+  const bankItems = () => isEconomics() ? BancoPreguntas.items(bankSource, subject().lessons) : [];
   const shuffled = items => { const a = [...items]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(st)); return true; }
@@ -110,11 +115,21 @@ const Estudio = (() => {
   }
   const button = (action, text, extra = '', cls = '') => `<button type="button" class="study-btn ${cls}" data-action="${action}" ${extra}>${text}</button>`;
   const badge = text => `<span class="study-badge">${html(text)}</span>`;
-  const icon = name => `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({book: '<path d="M12 6c-3-2-6-2-10-1v14c4-1 7-1 10 1 3-2 6-2 10-1V5c-4-1-7-1-10 1Zm0 0v14"/>', chart: '<path d="M4 3v17h17M9 15V9m5 6V5m5 10v-4"/>', plus: '<path d="M12 5v14M5 12h14"/>', health: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8m-4-4h8"/>'})[name]}</svg>`;
+  const icon = name => `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({book: '<path d="M12 6c-3-2-6-2-10-1v14c4-1 7-1 10 1 3-2 6-2 10-1V5c-4-1-7-1-10 1Zm0 0v14"/>', chart: '<path d="M4 3v17h17M9 15V9m5 6V5m5 10v-4"/>', plus: '<path d="M12 5v14M5 12h14"/>', health: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8m-4-4h8"/>', shuffle: '<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>', award: '<circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/>', chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'})[name]}</svg>`;
+  function economicsPlace() {
+    if (editor) return 'Agregar tema';
+    return { resources: 'Laboratorio de gráficos', exam: 'Prueba con IA', bank: 'Banco de preguntas', lesson: lesson()?.title || 'Tema', cards: 'Tarjetas', quiz: quiz?.ai ? 'Práctica IA' : 'Autoevaluación', cases: 'Casos prácticos', tutor: 'Tutor IA' }[view] || '';
+  }
   function breadcrumbs() {
     if (view === 'library' && !editor) return '';
     const parts = [button('library', 'Inicio', '', 'crumb')];
     if (editor === 'subject') parts.push('<span aria-current="page">Nueva asignatura</span>');
+    else if (isEconomics()) {
+      // Economía has a single hub, so the trail is Inicio / ramo / actividad.
+      const hub = ['subject', 'home'].includes(view) && !editor;
+      parts.push(hub ? `<span aria-current="page">${html(subject().name)}</span>` : button('subject', html(subject().name), `data-id="${html(subject().id)}"`, 'crumb'));
+      if (!hub) parts.push(`<span aria-current="page">${html(economicsPlace())}</span>`);
+    }
     else {
       parts.push(view === 'subject' && !editor ? `<span aria-current="page">${html(subject().name)}</span>` : button('subject', html(subject().name), `data-id="${html(subject().id)}"`, 'crumb'));
       if (view !== 'subject' || editor) parts.push(`<span aria-current="page">${view === 'resources' ? 'Laboratorios interactivos' : view === 'exam' ? 'Prueba con nota' : 'Estudio para la prueba'}</span>`);
@@ -128,13 +143,14 @@ const Estudio = (() => {
   function notice() { return status ? `<p class="study-notice" role="status">${html(status)}</p>` : ''; }
   function render() {
     const r = root(); if (!r) return;
-    r.innerHTML = shell(editor ? editorUI() : view === 'library' ? libraryUI() : view === 'subject' ? subjectUI() : view === 'resources' ? resourcesUI() : view === 'home' ? homeUI() : view === 'lesson' ? lessonUI() : view === 'cards' ? cardsUI() : view === 'quiz' ? quizUI() : view === 'exam' ? examUI() : view === 'cases' ? casesUI() : tutorUI());
+    const hub = ['subject', 'home'].includes(view) && isEconomics();
+    r.innerHTML = shell(editor ? editorUI() : view === 'library' ? libraryUI() : hub ? economicsHubUI() : view === 'subject' ? subjectUI() : view === 'resources' ? resourcesUI() : view === 'home' ? homeUI() : view === 'lesson' ? lessonUI() : view === 'cards' ? cardsUI() : view === 'quiz' ? quizUI() : view === 'exam' ? examUI() : view === 'bank' && isEconomics() ? bankUI() : view === 'cases' ? casesUI() : tutorUI());
     r.onclick = onClick; r.onchange = onChange; r.oninput = onInput; r.onsubmit = onSubmit;
     r.onpointerdown = e => { if (!EconomiaLab.pointerdown(e)) CuantitativasLab.pointerdown(e); };
     if (busy) r.querySelectorAll('#study-model, #study-ai-context, #study-difficulty, #study-practice-style, #study-web, #study-material-topic, #study-case-topic, #study-case-difficulty, #study-case-select, #study-case-ai-select, .study-case-step textarea').forEach(control => { control.disabled = true; });
     const home = document.getElementById('app-home');
     if (home) { home.disabled = busy; if (view === 'library' && !editor) home.setAttribute('aria-current', 'page'); else home.removeAttribute('aria-current'); }
-    const key = [view, editor, st.selected, st.lesson, mode, view === 'quiz' ? quiz?.index : '', view === 'exam' ? `${examAttempt()?.index}/${!!examAttempt()?.finishedAt}` : '', view === 'cards' ? card : '', view === 'cases' ? caseIndex() : ''].join('/');
+    const key = [view, editor, st.selected, st.lesson, mode, view === 'quiz' ? quiz?.index : '', view === 'exam' ? `${examAttempt()?.index}/${!!examAttempt()?.finishedAt}` : '', view === 'bank' ? `${bank.session?.index}/${!!bank.session?.finished}/${bank.session?.items.length}` : '', view === 'cards' ? card : '', view === 'cases' ? caseIndex() : ''].join('/');
     if (key !== lastRenderKey && r.classList.contains('active')) r.scrollIntoView({ block: 'start', behavior: 'instant' });
     lastRenderKey = key;
     if (view === 'library' && !editor && apiUsage === null && !usageError && !usageLocked && !usageLoading) refreshUsage();
@@ -155,7 +171,7 @@ const Estudio = (() => {
       <article id="study-api-usage" class="study-usage" aria-label="Consumo de la API">${usageUI()}</article>
       <div class="study-library-grid">${list.map(s => {
         const health = s.id === 'sistemas-salud', read = s.lessons.filter(l => st.progress[`${s.id}/${l.id}`]?.read).length;
-        return `<button type="button" class="study-subject-card" data-action="subject" data-id="${html(s.id)}"><span class="study-folder-icon">${icon(health ? 'health' : 'book')}</span><span class="study-eyebrow">ASIGNATURA</span><strong>${html(s.name)}</strong><span class="study-card-description">${health ? 'Estudio para la prueba y herramientas GRD.' : s.id === economicsID ? 'Guías, laboratorios y prueba de 30 preguntas con nota.' : 'Tus temas, guías y actividades de estudio.'}</span><span class="study-card-meta">${health || s.id === economicsID ? '2 contenidos' : '1 contenido'} · ${s.lessons.length} ${s.lessons.length === 1 ? 'tema' : 'temas'} de estudio</span><span class="study-card-footer"><span>${read ? `${read} de ${s.lessons.length} temas leídos` : 'Lista para comenzar'}</span><span>Ver contenidos →</span></span></button>`;
+        return `<button type="button" class="study-subject-card" data-action="subject" data-id="${html(s.id)}"><span class="study-folder-icon">${icon(health ? 'health' : 'book')}</span><span class="study-eyebrow">ASIGNATURA</span><strong>${html(s.name)}</strong><span class="study-card-description">${health ? 'Estudio para la prueba y herramientas GRD.' : s.id === economicsID ? 'Temas, gráficos interactivos, banco de preguntas y prueba con IA.' : 'Tus temas, guías y actividades de estudio.'}</span><span class="study-card-meta">${health ? '2 contenidos' : s.id === economicsID ? '4 actividades' : '1 contenido'} · ${s.lessons.length} ${s.lessons.length === 1 ? 'tema' : 'temas'} de estudio</span><span class="study-card-footer"><span>${read ? `${read} de ${s.lessons.length} temas leídos` : 'Lista para comenzar'}</span><span>Ver contenidos →</span></span></button>`;
       }).join('')}<button type="button" class="study-subject-card study-add-subject" data-action="new-subject"><span class="study-folder-icon">${icon('plus')}</span><strong>Agregar asignatura</strong><span class="study-card-description">Crea un espacio para otra materia y agrega tus primeros apuntes.</span><span class="study-card-footer">+ Nueva asignatura</span></button></div>
       <details class="study-source"><summary>Importar una asignatura</summary><p>Recupera una asignatura que hayas descargado desde esta app.</p><label>Archivo de asignatura (.json)<input id="study-import" type="file" accept=".json,application/json"></label></details>
       <p class="study-footnote">Tus asignaturas, apuntes y avances se guardan en este navegador.</p>`;
@@ -194,18 +210,68 @@ const Estudio = (() => {
     return usagePromise;
   }
   function resourcesPanel() {
-    if (isEconomics()) return `<article class="study-panel econ-entry"><div><span class="study-eyebrow">APRENDER HACIENDO</span><h3>Laboratorio de Economía de la Salud</h3><p>Modifica los gráficos del documento, compara escenarios y resuelve ejercicios. Oferta, demanda, elasticidad, economías de escala, productividad, monopolio y seguros.</p><p class="study-footnote">Tablas editables, fórmulas opcionales y soluciones paso a paso. Disponible sin IA.</p></div><div class="study-actions">${button('resources', 'Abrir laboratorios interactivos →')}</div></article>`;
     if (subject().id !== 'herramientas-cuantitativas') return '';
     return `<article class="study-panel"><h3>Guía y gráficos editables</h3><p>Practica regresiones, chi cuadrado, búsquedas y Erlang con los datos de clase y ejemplos de salud. Cambia los datos y observa los resultados.</p><div class="study-actions">${button('resources', 'Abrir laboratorios interactivos')}<a class="study-btn secondary" href="manual/cuantitativas/ejercicios.xlsx" download>Descargar Excel editable</a><a class="study-btn secondary" href="manual/cuantitativas/guia.pdf" target="_blank" rel="noopener">Leer guía PDF</a></div><p class="study-footnote">La guía explica las discrepancias del archivo de chi cuadrado. Los ejemplos nuevos de salud son simulados.</p></article>`;
   }
   function resourcesUI() {
-    return `${button('subject', '← Volver a la asignatura', `data-id="${html(subject().id)}"`, 'secondary')}${isEconomics() ? EconomiaLab.html() : CuantitativasLab.html()}`;
+    return `${button('subject', isEconomics() ? '← ' + html(subject().name) : '← Volver a la asignatura', `data-id="${html(subject().id)}"`, 'secondary')}${isEconomics() ? EconomiaLab.html() : CuantitativasLab.html()}`;
+  }
+  function hubCard(action, iconName, title, description, meta) {
+    return `<button type="button" class="econ-hub-card" data-action="${action}"><span class="econ-hub-icon">${icon(iconName)}</span><strong>${title}</strong><span>${description}</span><small>${meta}</small></button>`;
+  }
+  // Economía replaces the two-level subject/home navigation with one hub.
+  function economicsHubUI() {
+    const s = subject(), qs = questions(), known = qs.filter(q => progress(q.id).known).length, pool = bankItems();
+    const read = s.lessons.filter(l => progress(l.id).read).length, next = s.lessons.find(l => !progress(l.id).read) || s.lessons[0];
+    const attempt = examAttempt(), last = st.history.filter(h => h.subject === s.id && h.type === 'exam').at(-1);
+    const examMeta = !attempt ? 'Usa la API de OpenAI' : attempt.finishedAt ? 'Ver el último resultado' : `Prueba en curso · ${attempt.answers.filter(a => a !== null).length} de ${attempt.questions.length} respondidas`;
+    return `<article class="econ-hub-hero"><div><span class="study-eyebrow">ASIGNATURA</span><h2>${html(s.name)}</h2><p>Lee los temas, experimenta con los gráficos y mide lo que aprendiste.</p>
+        ${next ? `<div class="study-actions">${button('lesson', `${read ? 'Continuar' : 'Comenzar'} con: ${html(next.title)} →`, `data-id="${html(next.id)}"`, 'light')}</div>` : ''}</div>
+        <dl class="econ-hub-stats"><div><dt>Temas leídos</dt><dd>${read}/${s.lessons.length}</dd></div><div><dt>Tarjetas dominadas</dt><dd>${known}/${qs.length}</dd></div><div><dt>Última nota</dt><dd>${last ? examGrade(last.grade) : '—'}</dd></div></dl></article>
+      <h3 class="econ-hub-heading">¿Qué quieres hacer hoy?</h3>
+      <div class="econ-hub-grid">${hubCard('resources', 'chart', 'Laboratorio de gráficos', 'Mueve precios y curvas, cambia datos y resuelve ejercicios con solución paso a paso.', '7 laboratorios · sin IA')}
+        ${pool.length ? hubCard('bank', 'shuffle', 'Banco de preguntas', `Entre ${BancoPreguntas.min} y ${BancoPreguntas.max} preguntas al azar de selección múltiple y verdadero o falso, con corrección inmediata.`, `${pool.length} preguntas · sin IA`) : ''}
+        ${hubCard('exam', 'award', 'Prueba con IA y nota', 'Elige 10, 20 o 30 preguntas nuevas. Recibe tu nota de 1,0 a 7,0 y las explicaciones al entregar.', examMeta)}
+        ${hubCard('tutor', 'chat', 'Tutor IA', 'Pregunta tus dudas, pide un ejemplo o practica una pregunta a la vez.', 'Usa la API de OpenAI')}</div>
+      <div class="econ-hub-more"><span>Más práctica</span>${button('cards', `Tarjetas (${qs.length})`, '', 'secondary')}${button('quiz', 'Autoevaluación', '', 'secondary')}${button('practice-ai', '✦ Práctica IA', '', 'secondary')}${button('cases', `Casos prácticos (${s.cases.length})`, '', 'secondary')}</div>
+      <div class="study-section-title"><h3>Temas del ramo</h3>${button('add-lesson', '+ Tema', '', 'secondary')}</div>
+      <ol class="econ-topic-list">${s.lessons.map((l, i) => {
+        const done = progress(l.id).read, count = pool.filter(q => q.lesson === l.id).length;
+        return `<li class="econ-topic-row${done ? ' is-read' : ''}"><button type="button" class="study-topic" data-action="lesson" data-id="${html(l.id)}"><span class="study-topic-number">${String(i + 1).padStart(2, '0')}</span><span><strong>${html(l.title)}</strong><small>${needsMaterial(l) ? 'Guía y tarjetas pendientes de generar con IA' : html(l.objective)}</small></span></button><span class="econ-topic-side">${done ? '<span class="econ-topic-done">✓ Leído</span>' : ''}${l.lab ? button('resources', 'Gráfico', `data-lab="${html(l.lab)}" aria-label="Gráfico interactivo: ${html(l.title)}"`, 'secondary') : ''}${count ? button('bank-topic', 'Preguntas', `data-id="${html(l.id)}" aria-label="Banco de preguntas: ${html(l.title)}"`, 'secondary') : ''}</span></li>`;
+      }).join('')}</ol>
+      ${historyUI()}
+      <details class="study-source"><summary>Sobre este material y tus datos</summary><p>${html(s.source)}</p><p>Los ejemplos numéricos nuevos son simulados. Tu avance se guarda en este navegador; respalda todos tus datos desde Sistemas de Salud → GRD → Parámetros.</p>${button('export-subject', 'Descargar asignatura', '', 'secondary')} <label>Importar asignatura JSON<input id="study-import" type="file" accept=".json,application/json"></label></details>`;
+  }
+  function bankPool() { return bankItems().filter(q => !bank.topic || q.lesson === bank.topic); }
+  function startBank() { const next = BancoPreguntas.session(bankPool()); return next.items.length ? next : null; }
+  function bankUI() {
+    const pool = bankItems(), s = bank.session, lessonOf = id => subject().lessons.find(l => l.id === id);
+    const top = `${back()}<div class="study-section-title"><div><span class="study-eyebrow">PRÁCTICA SIN IA</span><h2>Banco de preguntas</h2></div>${badge(`${pool.length} preguntas`)}</div>`;
+    if (!s) {
+      const available = bankPool(), tf = available.filter(q => q.type === 'tf').length, topic = lessonOf(bank.topic);
+      return `${top}<article class="study-panel study-exam-setup"><h3>Preguntas al azar</h3><p>Cada práctica sortea entre ${BancoPreguntas.min} y ${BancoPreguntas.max} preguntas de selección múltiple y verdadero o falso. Después de cada respuesta ves si acertaste y por qué.</p>
+        <label>Temas<select id="study-bank-topic"><option value="">Todos los temas (${pool.length})</option>${subject().lessons.map(l => { const n = pool.filter(q => q.lesson === l.id).length; return n ? `<option value="${html(l.id)}" ${l.id === bank.topic ? 'selected' : ''}>${html(l.title)} (${n})</option>` : ''; }).join('')}</select></label>
+        <p class="study-footnote">${available.length - tf} de selección múltiple · ${tf} de verdadero o falso.${topic && available.length < BancoPreguntas.min ? ` Este tema tiene ${available.length} preguntas: la práctica las incluye todas.` : ''} Al terminar verás tu porcentaje y una nota de referencia con exigencia de 60 %.</p>
+        ${button('bank-start', 'Comenzar práctica al azar →', available.length ? '' : 'disabled')}</article>${historyUI()}`;
+    }
+    if (s.finished) {
+      const r = BancoPreguntas.score(s), failed = s.items.filter((q, i) => s.answers[i] !== q.answerIndex);
+      return `${top}<article class="study-result" id="study-bank-result"><span class="study-eyebrow">${s.review ? 'REPASO DE ERRORES' : 'PRÁCTICA COMPLETADA'}</span><strong class="study-result-score">${r.correct}/${r.total}</strong><h3>${r.percent} % de logro · nota de referencia ${examGrade(r.grade)}</h3><p>${failed.length ? 'Revisa las explicaciones de lo que fallaste y vuelve a intentarlo.' : '¡Todas correctas!'}</p>
+        <div class="study-actions">${button('bank-start', 'Nueva práctica al azar')}${failed.length ? button('bank-retry', `Repasar mis ${failed.length} ${failed.length === 1 ? 'error' : 'errores'}`, '', 'secondary') : ''}${button('bank-setup', 'Elegir temas', '', 'secondary')}</div></article>
+        ${failed.length ? `<div class="study-section-title"><h3>Preguntas para repasar</h3></div>${failed.map(q => { const l = lessonOf(q.lesson), answer = s.answers[s.items.indexOf(q)]; return `<details class="study-panel study-exam-review"><summary>${html(q.prompt)}</summary><p>Tu respuesta: ${html(q.options[answer])}</p><p><strong>Respuesta correcta: ${html(q.options[q.answerIndex])}</strong></p><p>${html(q.explanation)}</p>${l ? `<p class="study-footnote">Tema: ${html(l.title)}</p>${button('source', 'Repasar este tema', `data-id="${html(l.id)}"`, 'secondary')}` : ''}</details>`; }).join('')}` : ''}`;
+    }
+    const q = s.items[s.index], answer = s.answers[s.index], done = answer !== undefined, l = lessonOf(q.lesson);
+    const correct = s.answers.filter((a, i) => a === s.items[i].answerIndex).length;
+    return `${top}<div class="study-exam-meta"><strong>Pregunta ${s.index + 1} de ${s.items.length}</strong><span>${correct} correctas de ${s.answers.length} respondidas</span></div><progress value="${s.answers.length}" max="${s.items.length}" aria-label="Avance de la práctica"></progress>
+      <article class="study-panel study-exam-question"><p class="study-bank-tags">${badge(q.type === 'tf' ? 'Verdadero o falso' : 'Selección múltiple')}${l ? ' ' + badge(l.title) : ''}</p><h3 id="study-bank-prompt">${html(q.prompt)}</h3>
+      <div class="study-options${q.type === 'tf' ? ' study-tf-options' : ''}" role="group" aria-labelledby="study-bank-prompt">${q.options.map((o, i) => button('bank-answer', q.type === 'tf' ? html(o) : `<span class="study-exam-letter">${'ABCD'[i]}</span><span>${html(o)}</span>`, `data-index="${i}" ${done ? 'disabled' : ''}`, !done ? 'secondary' : i === q.answerIndex ? 'correct' : i === answer ? 'wrong' : 'secondary')).join('')}</div>
+      ${done ? `<div class="study-answer" role="status"><strong>${answer === q.answerIndex ? '✓ Correcto' : '✗ Incorrecto. La respuesta es: ' + html(q.options[q.answerIndex])}</strong><p>${html(q.explanation)}</p>${button('bank-next', s.index === s.items.length - 1 ? 'Ver resultado' : 'Siguiente pregunta →')}</div>` : ''}</article>
+      <p class="study-footnote">Banco basado en los temas del ramo. No usa la API ni consume tokens.</p>`;
   }
   function subjectUI() {
     const s = subject(), health = s.id === 'sistemas-salud';
-    return `<div class="study-top"><div><span class="study-eyebrow">ASIGNATURA</span><h2>${html(s.name)}</h2><p>Elige el contenido que quieres trabajar hoy.</p></div>${badge(health || isEconomics() ? '2 contenidos' : '1 contenido')}</div>${resourcesPanel()}
+    return `<div class="study-top"><div><span class="study-eyebrow">ASIGNATURA</span><h2>${html(s.name)}</h2><p>Elige el contenido que quieres trabajar hoy.</p></div>${badge(health ? '2 contenidos' : '1 contenido')}</div>${resourcesPanel()}
       <div class="study-module-grid"><button type="button" class="study-module-card study-module-exam" data-action="home"><span class="study-folder-icon">${icon('book')}</span><span class="study-eyebrow">LECTURA Y PRÁCTICA</span><strong>Estudio para la prueba</strong><span class="study-card-description">Guías, tarjetas, preguntas, casos prácticos y tutor IA para preparar tu evaluación.</span><span class="study-module-tags">${badge(`${s.lessons.length} temas`)}${badge(`${questions().length} preguntas`)}${s.cases.length ? badge(`${s.cases.length} casos`) : ''}</span><span class="study-card-footer">Ir a estudiar <span aria-hidden="true">→</span></span></button>
-      ${isEconomics() ? `<button type="button" class="study-module-card study-module-exam" data-action="exam"><span class="study-folder-icon">${icon('book')}</span><span class="study-eyebrow">EVALÚA LO APRENDIDO</span><strong>Prueba con nota</strong><span class="study-card-description">30 preguntas de selección múltiple creadas con IA desde el material del ramo. Nota y explicaciones al entregar.</span><span class="study-module-tags">${badge('4 alternativas')}${badge('Nota 1,0–7,0')}</span><span class="study-card-footer">${examAttempt() ? examAttempt().finishedAt ? 'Ver resultado' : 'Continuar prueba' : 'Preparar prueba'} →</span></button>` : ''}
       ${health ? `<button type="button" class="study-module-card study-module-grd" data-action="grd"><span class="study-folder-icon">${icon('chart')}</span><span class="study-eyebrow">ANÁLISIS Y SIMULACIÓN</span><strong>GRD</strong><span class="study-card-description">Explora los Grupos Relacionados por el Diagnóstico y practica el análisis de costos y pagos hospitalarios.</span><span class="study-module-tags">${badge('Simulador')}${badge('Casos y cálculos')}${badge('Licitaciones')}</span><span class="study-card-footer">Abrir herramientas GRD <span aria-hidden="true">→</span></span></button>` : ''}</div>`;
   }
   function homeUI() {
@@ -220,7 +286,7 @@ const Estudio = (() => {
       <div class="study-hero-art" aria-hidden="true"><div class="study-art-card">Aa<span>Comprender</span></div><div class="study-art-card">✓<span>Recordar</span></div><div class="study-art-card">↗<span>Aplicar</span></div></div></article>
       <div class="study-stats"><div><strong>${read}/${s.lessons.length}</strong><span>Temas leídos</span></div><div><strong>${pending}</strong><span>Por repasar</span></div><div><strong>${st.history.filter(h => h.subject === s.id).length}</strong><span>Prácticas realizadas</span></div></div>
       <div class="study-modes">${modeCard('practice-ai', '✦', 'Práctica IA', 'Preguntas nuevas en cada sesión. Responde y recibe una explicación.', 'Con la API de OpenAI')}${modeCard('cards', '▤', 'Tarjetas', 'Recuerda antes de revelar la respuesta.', `${qs.length} preguntas`)}${modeCard('quiz', '✓', 'Autoevaluación', 'Practica con corrección y explicación.', 'Sesiones de hasta 10 preguntas')}${modeCard('cases', '↗', 'Casos prácticos', 'Asume un rol, decide y justifica tu solución.', `${s.cases.length} incluidos · Nuevos casos con IA`)}</div>
-      ${isEconomics() ? modeCard('exam', '✓', 'Prueba con nota · 30 preguntas', 'Responde a tu ritmo. Recibe tu nota y las explicaciones al entregar.', 'Selección múltiple · Generada con IA') + resourcesPanel() : ''}<div class="study-section-title"><h3>Tu ruta de estudio</h3>${button('add-lesson', '+ Tema', '', 'secondary')}</div><label class="study-search">Buscar en títulos y contenido<input id="study-search" type="search" placeholder="Por ejemplo: riesgo moral, GRD…" value="${html(query)}"></label>
+      <div class="study-section-title"><h3>Tu ruta de estudio</h3>${button('add-lesson', '+ Tema', '', 'secondary')}</div><label class="study-search">Buscar en títulos y contenido<input id="study-search" type="search" placeholder="Por ejemplo: riesgo moral, GRD…" value="${html(query)}"></label>
       <div class="study-topics" id="study-topics">${topicCards()}</div>
       <details class="study-source"><summary>Sobre este material y tus datos</summary><p>${html(s.source)}</p><p>Las cifras y referencias normativas pertenecen a los periodos del material. El tutor puede contrastarlas con fuentes actuales cuando habilitas la búsqueda web.</p><p>Tu biblioteca y avance se guardan en este navegador. Descarga esta asignatura o respalda todos tus datos desde Sistemas de Salud → GRD → Parámetros.</p>${button('export-subject', 'Descargar asignatura', '', 'secondary')} <label>Importar asignatura JSON<input id="study-import" type="file" accept=".json,application/json"></label></details>
       ${historyUI()}`;
@@ -232,7 +298,12 @@ const Estudio = (() => {
     const list = subject().lessons.filter(l => `${l.title} ${l.text}`.toLowerCase().includes(query.toLowerCase()));
     return list.map(l => `<button class="study-topic" data-action="lesson" data-id="${html(l.id)}"><span class="study-topic-number">${String(subject().lessons.indexOf(l) + 1).padStart(2, '0')}</span><span><strong>${html(l.title)}</strong><small>${needsMaterial(l) ? 'Guía y tarjetas pendientes de generar con IA' : html(l.objective)}<br>${l.questions.filter(q => !isExtract(q)).length} preguntas · ${Math.max(1, Math.ceil(l.text.split(/\s+/).length / 180))} min de lectura</small></span><span class="study-topic-status">${progress(l.id).read ? '✓ Leído' : '→'}</span></button>`).join('') || '<p class="study-empty">No hay temas que coincidan. Prueba otra palabra o agrega contenido.</p>';
   }
-  function back() { return button('home', '← Estudio para la prueba', '', 'secondary'); }
+  function back() { return button('home', isEconomics() ? '← ' + html(subject().name) : '← Estudio para la prueba', '', 'secondary'); }
+  function lessonNav(l) {
+    const list = subject().lessons, i = list.indexOf(l), prev = list[i - 1], next = list[i + 1];
+    if (!prev && !next) return '';
+    return `<nav class="study-lesson-nav" aria-label="Otros temas">${prev ? button('lesson', `← ${html(prev.title)}`, `data-id="${html(prev.id)}"`, 'secondary') : '<span></span>'}${next ? button('lesson', `${html(next.title)} →`, `data-id="${html(next.id)}"`, 'secondary') : ''}</nav>`;
+  }
   function lessonUI() {
     const l = lesson(); if (!l) return `${back()}<p>Agrega un tema para comenzar.</p>`;
     const note = st.notes[progressKey(l.id)] || '';
@@ -242,7 +313,7 @@ const Estudio = (() => {
       ${isEconomics() && l.lab ? `<div class="study-actions">${button('resources', 'Practicar este tema con gráficos →', `data-lab="${html(l.lab)}"`)}</div>` : ''}
       ${mode === 'guide' ? needsMaterial(l) ? '<p class="study-empty">Tu texto está guardado. Genera la guía con IA para estudiar sus ideas explicadas y practicar con tarjetas.</p>' : `<div class="study-objective"><span aria-hidden="true">◎</span><div><strong>Al terminar podrás…</strong><p>${html(l.objective)}</p></div></div><div class="study-support">${l.summary.map((p, i) => `<article><span class="study-eyebrow">IDEA ${i + 1}</span><p>${html(p)}</p></article>`).join('')}</div><article class="study-panel"><h4>Explícalo con tus palabras</h4><p>¿Cuál es el concepto central? ¿Cómo funciona? ¿Qué ejemplo lo ilustra? ¿Qué límite o condición debes recordar?</p></article>` : `<article class="study-panel study-reading">${l.text.split(/\n+/).filter(Boolean).map(p => p.length < 100 && !/[.!?]$/.test(p) ? `<h4>${html(p)}</h4>` : `<p>${html(p)}</p>`).join('')}</article>`}
       <label class="study-panel">Mis apuntes<textarea id="study-note" rows="5" placeholder="Escribe una explicación o las dudas que quieres repasar…">${html(note)}</textarea><small>Se guardan mientras escribes.</small></label>
-      <div class="study-actions">${button('mark-read', progress(l.id).read ? '✓ Leído · marcar pendiente' : 'Marcar como leído', '', 'secondary')}${button('practice-ai', '✦ Preguntas nuevas con IA')}${button('topic-cards', 'Practicar tarjetas', '', 'secondary')}${button('topic-quiz', 'Evaluarme', '', 'secondary')}</div><p class="study-footnote">Fuente: capítulo ${subject().lessons.indexOf(l) + 1} · ${html(subject().source)}</p>`;
+      <div class="study-actions">${button('mark-read', progress(l.id).read ? '✓ Leído · marcar pendiente' : 'Marcar como leído', '', 'secondary')}${isEconomics() && bankItems().some(q => q.lesson === l.id) ? button('bank-topic', 'Practicar con el banco', `data-id="${html(l.id)}"`) + button('practice-ai', '✦ Preguntas nuevas con IA', '', 'secondary') : button('practice-ai', '✦ Preguntas nuevas con IA')}${button('topic-cards', 'Practicar tarjetas', '', 'secondary')}${isEconomics() ? '' : button('topic-quiz', 'Evaluarme', '', 'secondary')}</div>${lessonNav(l)}<p class="study-footnote">Fuente: capítulo ${subject().lessons.indexOf(l) + 1} · ${html(subject().source)}</p>`;
   }
   let scope = null;
   function deck() { return questions().filter(q => (!scope || q.lesson === scope) && (!reviewOnly || !progress(q.id).known)); }
@@ -275,7 +346,8 @@ const Estudio = (() => {
   }
   function historyUI() {
     const list = st.history.filter(h => h.subject === subject().id).slice(-5).reverse();
-    return list.length ? `<article class="study-panel"><h3>Mis últimas prácticas</h3>${list.map(h => `<p>${html(new Date(h.date).toLocaleDateString('es-CL'))} · ${h.correct}/${h.total} correctas${h.type === 'exam' ? ` · Nota ${html(Number(h.grade).toFixed(1).replace('.', ','))} · Exigencia ${Math.round(h.threshold * 100)} %` : ''}${h.self ? ' · incluye autoevaluación de respuestas abiertas' : ''}</p>`).join('')}</article>` : '';
+    const kind = { exam: 'Prueba IA · ', bank: 'Banco de preguntas · ' };
+    return list.length ? `<article class="study-panel"><h3>Mis últimas prácticas</h3>${list.map(h => `<p>${html(new Date(h.date).toLocaleDateString('es-CL'))} · ${kind[h.type] || ''}${h.correct}/${h.total} correctas${h.type === 'exam' || h.type === 'bank' ? ` · Nota ${html(Number(h.grade).toFixed(1).replace('.', ','))} · Exigencia ${Math.round(h.threshold * 100)} %` : ''}${h.self ? ' · incluye autoevaluación de respuestas abiertas' : ''}</p>`).join('')}</article>` : '';
   }
   function examAttempt() {
     if (!examLoaded) {
@@ -289,36 +361,38 @@ const Estudio = (() => {
   }
   const examGrade = value => value.toFixed(1).replace('.', ',');
   function examSetup() {
+    const n = examCount;
     return `<article class="study-panel study-exam-setup">
-      <span class="study-eyebrow">ECONOMÍA DE LA SALUD · PRUEBA IA</span><h3>30 preguntas para poner a prueba lo aprendido</h3>
-      <p>La IA crea una prueba nueva desde el contenido que tengas ingresado en este ramo, incluidos tus temas personales. Las preguntas y sus alternativas se ordenan al azar.</p>
-      <p>Cuatro alternativas por pregunta, una correcta. Incluye conceptos y ejercicios con situaciones simuladas de salud. Puedes saltar preguntas y cambiar tus respuestas antes de entregar. Sin límite de tiempo.</p>
-      <label>Exigencia para obtener un 4,0<select id="study-exam-threshold" ${busy ? 'disabled' : ''}>${[50,60,70].map(p => `<option value="${p / 100}" ${examThreshold === p / 100 ? 'selected' : ''}>${p} % · ${Math.ceil(30 * p / 100)} correctas de 30</option>`).join('')}</select></label>
-      <p class="study-footnote">Escala de 1,0 a 7,0, con un decimal. Cada acierto vale un punto; errores y omisiones valen cero. Exigencia fija durante el intento. Es una autoevaluación de estudio.</p>
-      ${quotaAlert()}${button('generate-exam', creatingExam ? 'Creando las 30 preguntas…' : examAttempt() ? '✦ Generar otra prueba con IA' : '✦ Generar prueba de 30 preguntas', busy || !ai.connected ? 'disabled' : '')}
-      <p class="study-footnote">${creatingExam ? 'La IA está creando y revisando las preguntas y sus soluciones. Puede tardar unos minutos.' : 'Crear y revisar la prueba usa la API de OpenAI. Responderla y consultar la nota no requiere nuevas consultas. Tu último intento se guarda en este navegador.'}</p>
-      ${!ai.connected ? `<div class="study-case-connection">${connectionUI()}</div>` : ''}</article>`;
+      <span class="study-eyebrow">ECONOMÍA DE LA SALUD · PRUEBA IA</span><h3>${examAttempt() ? 'Prepara otra prueba' : 'Prepara tu prueba'}</h3>
+      <p>La IA crea preguntas nuevas de selección múltiple, con cuatro alternativas, desde todo el contenido del ramo (incluidos tus temas). Puedes saltar preguntas y cambiar respuestas antes de entregar. Sin límite de tiempo.</p>
+      <fieldset class="study-exam-size"><legend>Número de preguntas</legend><div class="study-segmented">${PruebaEstudio.sizes.map(size => button('set-exam-size', `${size}`, `data-size="${size}" aria-pressed="${size === n}" aria-label="${size} preguntas" ${busy ? 'disabled' : ''}`, size === n ? 'selected' : 'secondary')).join('')}</div></fieldset>
+      <label>Exigencia para obtener un 4,0<select id="study-exam-threshold" ${busy ? 'disabled' : ''}>${[50,60,70].map(p => `<option value="${p / 100}" ${examThreshold === p / 100 ? 'selected' : ''}>${p} % · ${Math.ceil(n * p / 100)} correctas de ${n}</option>`).join('')}</select></label>
+      <p class="study-footnote">Escala de 1,0 a 7,0, con un decimal. Cada acierto vale un punto; errores y omisiones valen cero. La exigencia queda fija durante el intento. Es una autoevaluación de estudio.</p>
+      ${quotaAlert()}${button('generate-exam', creatingExam ? `Creando las ${n} preguntas…` : `✦ Generar prueba de ${n} preguntas`, busy || !ai.connected ? 'disabled' : '')}
+      <p class="study-footnote">${creatingExam ? 'La IA está creando y revisando las preguntas y sus soluciones. Puede tardar unos minutos.' : 'Crear y revisar la prueba usa la API de OpenAI. Responderla y ver la nota no consume tokens. Tu último intento se guarda en este navegador.'}</p>
+      ${!ai.connected ? `<div class="study-case-connection">${connectionUI()}</div>${bankItems().length ? `<p>Mientras tanto, puedes practicar sin IA.</p>${button('bank', 'Ir al banco de preguntas', '', 'secondary')}` : ''}` : ''}</article>`;
   }
   function examUI() {
-    const attempt = examAttempt(), top = `${back()}<div class="study-section-title"><h2>Prueba con nota</h2>${badge('Economía de la Salud')}</div>`;
+    const attempt = examAttempt(), top = `${back()}<div class="study-section-title"><h2>Prueba con IA y nota</h2>${badge('Economía de la Salud')}</div>`;
     if (!attempt) return top + examSetup();
+    const n = attempt.questions.length;
     if (attempt.finishedAt) {
       const result = PruebaEstudio.score(attempt);
       const topics = [...new Set(attempt.questions.map(q => q.sourceTitle))];
-      return `${top}<article class="study-result" id="study-exam-result"><span class="study-eyebrow">PRUEBA ENTREGADA · NOTA FINAL</span><strong class="study-result-score">${examGrade(result.grade)}</strong><h3>${result.passed ? 'Meta alcanzada' : 'Sigue practicando'} · ${result.correct} de 30 correctas</h3><p>${result.percent} % de logro · ${result.wrong} incorrectas · ${result.omitted} omitidas.</p><p>Escala 1,0–7,0 · Exigencia ${Math.round(attempt.threshold * 100)} % para el 4,0 · ${html(usageDate(attempt.finishedAt))}</p></article><article class="study-panel"><h3>Resultado por tema</h3><ul class="study-exam-topics">${topics.map(title => { const indices = attempt.questions.map((q,i) => q.sourceTitle === title ? i : -1).filter(i => i >= 0), correct = indices.filter(i => attempt.answers[i] === attempt.questions[i].answerIndex).length; return `<li><span>${html(title)}</span><strong>${correct}/${indices.length}</strong></li>`; }).join('')}</ul></article><div class="study-section-title"><h3>Revisa tus respuestas</h3>${badge('Corrección y explicación')}</div>${attempt.questions.map((q,i) => { const selected = attempt.answers[i], correct = selected === q.answerIndex, source = subject().lessons.find(l => l.title === q.sourceTitle); return `<details class="study-panel study-exam-review"><summary>${i + 1}. ${correct ? '✓ Correcta' : selected === null ? '— Omitida' : '↻ Incorrecta'} · ${html(q.prompt)}</summary><p>Tu respuesta: ${selected === null ? 'Sin responder' : html(q.options[selected])}</p><p><strong>Respuesta correcta: ${html(q.options[q.answerIndex])}</strong></p><p>${html(q.explanation)}</p><p class="study-footnote">Tema: ${html(q.sourceTitle)}</p>${source ? button('source', 'Repasar este tema', `data-id="${html(source.id)}"`, 'secondary') : ''}</details>`; }).join('')}<p class="study-footnote">Preguntas creadas con IA. Contrasta las explicaciones con el material del ramo; la IA puede cometer errores.</p>${examSetup()}`;
+      return `${top}<article class="study-result" id="study-exam-result"><span class="study-eyebrow">PRUEBA ENTREGADA · NOTA FINAL</span><strong class="study-result-score">${examGrade(result.grade)}</strong><h3>${result.passed ? 'Meta alcanzada' : 'Sigue practicando'} · ${result.correct} de ${n} correctas</h3><p>${result.percent} % de logro · ${result.wrong} incorrectas · ${result.omitted} omitidas.</p><p>Escala 1,0–7,0 · Exigencia ${Math.round(attempt.threshold * 100)} % para el 4,0 · ${html(usageDate(attempt.finishedAt))}</p></article><article class="study-panel"><h3>Resultado por tema</h3><ul class="study-exam-topics">${topics.map(title => { const indices = attempt.questions.map((q,i) => q.sourceTitle === title ? i : -1).filter(i => i >= 0), correct = indices.filter(i => attempt.answers[i] === attempt.questions[i].answerIndex).length; return `<li><span>${html(title)}</span><strong>${correct}/${indices.length}</strong></li>`; }).join('')}</ul></article><div class="study-section-title"><h3>Revisa tus respuestas</h3>${badge('Corrección y explicación')}</div>${attempt.questions.map((q,i) => { const selected = attempt.answers[i], correct = selected === q.answerIndex, source = subject().lessons.find(l => l.title === q.sourceTitle); return `<details class="study-panel study-exam-review"><summary>${i + 1}. ${correct ? '✓ Correcta' : selected === null ? '— Omitida' : '↻ Incorrecta'} · ${html(q.prompt)}</summary><p>Tu respuesta: ${selected === null ? 'Sin responder' : html(q.options[selected])}</p><p><strong>Respuesta correcta: ${html(q.options[q.answerIndex])}</strong></p><p>${html(q.explanation)}</p><p class="study-footnote">Tema: ${html(q.sourceTitle)}</p>${source ? button('source', 'Repasar este tema', `data-id="${html(source.id)}"`, 'secondary') : ''}</details>`; }).join('')}<p class="study-footnote">Preguntas creadas con IA. Contrasta las explicaciones con el material del ramo; la IA puede cometer errores.</p>${examSetup()}`;
     }
     const q = attempt.questions[attempt.index], answered = attempt.answers.filter(a => a !== null).length;
-    return `${top}<div class="study-exam-meta"><strong>${answered} de 30 respondidas</strong><span>Exigencia ${Math.round(attempt.threshold * 100)} % · Guardado en este navegador</span></div><progress value="${answered}" max="30" aria-label="Preguntas respondidas"></progress><nav class="study-exam-nav" aria-label="Navegar por las 30 preguntas">${attempt.questions.map((_,i) => button('exam-jump', `${i + 1}`, `data-index="${i}" aria-label="Pregunta ${i + 1}, ${attempt.answers[i] === null ? 'sin responder' : 'respondida'}" ${i === attempt.index ? 'aria-current="step"' : ''}`, attempt.answers[i] !== null ? 'answered' : 'secondary')).join('')}</nav><p class="study-footnote">Los números verdes indican preguntas respondidas. Puedes revisar y cambiar cualquier respuesta.</p><article class="study-panel study-exam-question"><p class="study-eyebrow">PREGUNTA ${attempt.index + 1} DE 30</p><h3 id="study-exam-prompt">${html(q.prompt)}</h3><div class="study-options" role="group" aria-labelledby="study-exam-prompt">${q.options.map((option,i) => button('exam-answer', `<span class="study-exam-letter">${'ABCD'[i]}</span><span>${html(option)}</span>`, `data-index="${i}" aria-pressed="${attempt.answers[attempt.index] === i}"`, attempt.answers[attempt.index] === i ? 'selected' : 'secondary')).join('')}</div><div class="study-actions">${button('exam-prev', '← Anterior', attempt.index === 0 ? 'disabled' : '', 'secondary')}${button('exam-next', 'Siguiente →', attempt.index === 29 ? 'disabled' : '')}${attempt.answers[attempt.index] !== null ? button('exam-clear', 'Quitar respuesta', '', 'secondary') : ''}</div></article><div class="study-actions">${button('exam-deliver', 'Entregar prueba y ver nota')}${button('exam-pending', `Revisar sin responder (${30 - answered})`, answered === 30 ? 'disabled' : '', 'secondary')}</div>${examConfirm ? `<article class="study-notice" id="study-exam-confirm" role="alert"><strong>${answered < 30 ? `Quedan ${30 - answered} preguntas sin responder; contarán como incorrectas.` : 'Las 30 preguntas están respondidas.'}</strong><p>Al entregar se calculará la nota y las respuestas quedarán cerradas.</p><div class="study-actions">${button('exam-finish', 'Confirmar entrega')}${button('exam-cancel-delivery', 'Seguir revisando', '', 'secondary')}</div></article>` : ''}<p class="study-footnote">Puedes salir y continuar después en este navegador. Las soluciones se muestran al entregar.</p>`;
+    return `${top}<div class="study-exam-meta"><strong>${answered} de ${n} respondidas</strong><span>Exigencia ${Math.round(attempt.threshold * 100)} % · Guardado en este navegador</span></div><progress value="${answered}" max="${n}" aria-label="Preguntas respondidas"></progress><nav class="study-exam-nav" aria-label="Navegar por las ${n} preguntas">${attempt.questions.map((_,i) => button('exam-jump', `${i + 1}`, `data-index="${i}" aria-label="Pregunta ${i + 1}, ${attempt.answers[i] === null ? 'sin responder' : 'respondida'}" ${i === attempt.index ? 'aria-current="step"' : ''}`, attempt.answers[i] !== null ? 'answered' : 'secondary')).join('')}</nav><p class="study-footnote">Los números verdes indican preguntas respondidas. Puedes revisar y cambiar cualquier respuesta.</p><article class="study-panel study-exam-question"><p class="study-eyebrow">PREGUNTA ${attempt.index + 1} DE ${n}</p><h3 id="study-exam-prompt">${html(q.prompt)}</h3><div class="study-options" role="group" aria-labelledby="study-exam-prompt">${q.options.map((option,i) => button('exam-answer', `<span class="study-exam-letter">${'ABCD'[i]}</span><span>${html(option)}</span>`, `data-index="${i}" aria-pressed="${attempt.answers[attempt.index] === i}"`, attempt.answers[attempt.index] === i ? 'selected' : 'secondary')).join('')}</div><div class="study-actions">${button('exam-prev', '← Anterior', attempt.index === 0 ? 'disabled' : '', 'secondary')}${button('exam-next', 'Siguiente →', attempt.index === n - 1 ? 'disabled' : '')}${attempt.answers[attempt.index] !== null ? button('exam-clear', 'Quitar respuesta', '', 'secondary') : ''}</div></article><div class="study-actions">${button('exam-deliver', 'Entregar prueba y ver nota')}${button('exam-pending', `Revisar sin responder (${n - answered})`, answered === n ? 'disabled' : '', 'secondary')}</div>${examConfirm ? `<article class="study-notice" id="study-exam-confirm" role="alert"><strong>${answered < n ? `Quedan ${n - answered} preguntas sin responder; contarán como incorrectas.` : `Las ${n} preguntas están respondidas.`}</strong><p>Al entregar se calculará la nota y las respuestas quedarán cerradas.</p><div class="study-actions">${button('exam-finish', 'Confirmar entrega')}${button('exam-cancel-delivery', 'Seguir revisando', '', 'secondary')}</div></article>` : ''}<p class="study-footnote">Puedes salir y continuar después en este navegador. Las soluciones se muestran al entregar.</p>`;
   }
   async function generateExam() {
     if (busy || !isEconomics()) return;
-    const captured = structuredClone(subject()), previous = examAttempt();
+    const captured = structuredClone(subject()), previous = examAttempt(), size = examCount;
     busy = true; creatingExam = true; status = ''; statusPlace = 'general'; render();
     try {
       await checkAI();
       if (!ai.connected) throw Error('Habilita la conexión con la API para generar la prueba.');
-      const data = await request('tutor', { model, generateExam: true, context: { name: captured.name, source: captured.source, lessons: captured.lessons.map(l => ({ title: l.title, text: l.text })) }, messages: [{ role: 'user', content: 'Prepara una prueba de 30 preguntas variadas con conceptos, casos de salud y ejercicios. ' + (previous ? 'Evita repetir estos enunciados de la prueba anterior: ' + JSON.stringify(previous.questions.map(q => q.prompt)).slice(0, 18000) : '') }] });
-      const attempt = PruebaEstudio.create(data.exam?.questions, examThreshold);
+      const data = await request('tutor', { model, generateExam: true, examSize: size, context: { name: captured.name, source: captured.source, lessons: captured.lessons.map(l => ({ title: l.title, text: l.text })) }, messages: [{ role: 'user', content: `Prepara una prueba de ${size} preguntas variadas con conceptos, casos de salud y ejercicios. ` + (previous ? 'Evita repetir estos enunciados de la prueba anterior: ' + JSON.stringify(previous.questions.map(q => q.prompt)).slice(0, 18000) : '') }] });
+      const attempt = PruebaEstudio.create(data.exam?.questions, examThreshold, Math.random, size);
       if (attempt.questions.some(q => !captured.lessons.some(l => l.title === q.sourceTitle))) throw Error('La prueba contiene temas ajenos al material. Vuelve a generarla.');
       st.exams[captured.id] = attempt; examConfirm = false; save();
     } catch (err) { status = err.message; if (err.status === 402) apiUsage = { ...apiUsage, quota: { state: 'exhausted', code: err.code, message: err.message } }; }
@@ -534,20 +608,45 @@ const Estudio = (() => {
     else if (a === 'home') { view = 'home'; editor = null; scope = null; status = ''; }
     else if (a === 'exam' && isEconomics()) { view = 'exam'; editor = null; status = ''; examConfirm = false; render(); const before = JSON.stringify(ai); checkAI().then(() => { if (view === 'exam' && (!examAttempt() || examAttempt().finishedAt) && before !== JSON.stringify(ai)) render(); }); return; }
     else if (a === 'generate-exam') { generateExam(); return; }
+    else if (a === 'set-exam-size') { const size = Number(b.dataset.size); if (!PruebaEstudio.sizes.includes(size)) return; examCount = size; st.examCount = size; save(); }
+    else if (a.startsWith('bank') && isEconomics()) {
+      const s = bank.session;
+      if (a === 'bank') { view = 'bank'; editor = null; status = ''; if (!s || s.finished) { bank.topic = ''; bank.session = null; } }
+      else if (a === 'bank-topic') { view = 'bank'; editor = null; status = ''; bank.topic = b.dataset.id || ''; bank.session = startBank(); }
+      else if (a === 'bank-start') bank.session = startBank();
+      else if (a === 'bank-setup') bank.session = null;
+      else if (a === 'bank-retry' && s?.finished) bank.session = BancoPreguntas.retry(s);
+      else if (a === 'bank-answer' && s && !s.finished && s.answers[s.index] === undefined) {
+        const index = Number(b.dataset.index); if (!Number.isInteger(index) || index < 0 || index >= s.items[s.index].options.length) return;
+        s.answers[s.index] = index; render();
+        const answer = root().querySelector('.study-answer');
+        answer?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); root().querySelector('[data-action="bank-next"]')?.focus({ preventScroll: true });
+        return;
+      }
+      else if (a === 'bank-next' && s && s.answers[s.index] !== undefined) {
+        if (s.index < s.items.length - 1) s.index++;
+        else {
+          s.finished = true;
+          // Error reviews are follow-up practice and do not count as a new attempt.
+          if (!s.review) { const r = BancoPreguntas.score(s); st.history.push({ subject: subject().id, type: 'bank', date: new Date().toISOString(), correct: r.correct, total: r.total, grade: r.grade, threshold: r.threshold }); st.history = st.history.slice(-200); save(); }
+        }
+      }
+    }
     else if (a.startsWith('exam-') && view === 'exam' && isEconomics()) {
       const attempt = examAttempt(); if (!attempt || attempt.finishedAt) return;
+      const last = attempt.questions.length - 1;
       status = '';
       if (a === 'exam-answer') { const index = Number(b.dataset.index); if (!Number.isInteger(index) || index < 0 || index > 3) return; attempt.answers[attempt.index] = index; examConfirm = false; }
       else if (a === 'exam-clear') { attempt.answers[attempt.index] = null; examConfirm = false; }
-      else if (a === 'exam-jump') { const index = Number(b.dataset.index); if (!Number.isInteger(index) || index < 0 || index > 29) return; attempt.index = index; examConfirm = false; }
-      else if (a === 'exam-prev' || a === 'exam-next') { attempt.index = Math.max(0, Math.min(29, attempt.index + (a === 'exam-prev' ? -1 : 1))); examConfirm = false; }
+      else if (a === 'exam-jump') { const index = Number(b.dataset.index); if (!Number.isInteger(index) || index < 0 || index > last) return; attempt.index = index; examConfirm = false; }
+      else if (a === 'exam-prev' || a === 'exam-next') { attempt.index = Math.max(0, Math.min(last, attempt.index + (a === 'exam-prev' ? -1 : 1))); examConfirm = false; }
       else if (a === 'exam-pending') { const index = attempt.answers.findIndex((value,i) => value === null && i > attempt.index); attempt.index = index >= 0 ? index : Math.max(0, attempt.answers.indexOf(null)); examConfirm = false; }
       else if (a === 'exam-deliver') examConfirm = true;
       else if (a === 'exam-cancel-delivery') examConfirm = false;
       else if (a === 'exam-finish' && examConfirm) {
         attempt.finishedAt = new Date().toISOString(); examConfirm = false;
         const result = PruebaEstudio.score(attempt);
-        if (!st.history.some(h => h.examId === attempt.id)) st.history.push({ subject: economicsID, type: 'exam', examId: attempt.id, date: attempt.finishedAt, correct: result.correct, total: 30, grade: result.grade, threshold: attempt.threshold });
+        if (!st.history.some(h => h.examId === attempt.id)) st.history.push({ subject: economicsID, type: 'exam', examId: attempt.id, date: attempt.finishedAt, correct: result.correct, total: result.total, grade: result.grade, threshold: attempt.threshold });
         st.history = st.history.slice(-200);
       }
       save(); render();
@@ -609,6 +708,7 @@ const Estudio = (() => {
   }
   async function onChange(e) {
     if (e.target.id === 'study-exam-threshold') { if (!busy && [0.5,0.6,0.7].includes(Number(e.target.value))) examThreshold = Number(e.target.value); return; }
+    if (e.target.id === 'study-bank-topic') { bank.topic = e.target.value; render(); return; }
     if (EconomiaLab.handle(e)) return;
     if (CuantitativasLab.handle(e)) return;
     if (e.target.id === 'study-review') { reviewOnly = e.target.checked; card = 0; revealed = false; render(); }

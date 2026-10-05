@@ -24,7 +24,18 @@ const EconomiaLab = (() => {
   }
   let s = clone(defaults), history = [], feedback = '', notice = '', expected = [], solution = '', plotMeta = null;
   try { const saved = JSON.parse(localStorage.getItem(KEY)); if (saved?.version === 1) s = merge(defaults, saved.data); } catch {}
-  const tabs = [['market','Oferta y demanda'],['elasticity','Elasticidad'],['scale','Economías de escala'],['productivity','Productividad'],['monopoly','Monopolio'],['insurance','Seguros'],['grossman','Capital de salud']];
+  // [id, pestaña, tema del ramo, qué se practica]
+  const tabs = [
+    ['market','Oferta y demanda','econ-mercado','Mueve el precio para ver excesos de oferta o demanda, o desplaza las curvas.'],
+    ['elasticity','Elasticidad','econ-elasticidad','Compara dos observaciones y calcula la elasticidad arco y el ingreso total.'],
+    ['scale','Economías de escala','econ-escala','Compara el costo por examen de dos volúmenes, a corto y a largo plazo.'],
+    ['productivity','Productividad','econ-productividad','Edita los aportes marginales del gráfico del apunte.'],
+    ['monopoly','Monopolio','econ-monopolio','Compara competencia y monopolio con la misma demanda y los mismos costos.'],
+    ['insurance','Seguros','econ-seguros','Cambia el copago y observa la demanda y quién financia el gasto.'],
+    ['grossman','Capital de salud','econ-grossman','Simula cómo evoluciona el stock de salud con depreciación e inversión.']
+  ];
+  // The market data table is long; it starts folded on narrow screens.
+  let dataOpen = (globalThis.innerWidth || 1280) >= 700;
   if (!tabs.some(([id]) => id === s.tab)) s.tab = 'market';
   const get = path => path.split('.').reduce((o, k) => o?.[k], s);
   function set(path, value) { const keys = path.split('.'), key = keys.pop(); keys.reduce((o,k) => o[k], s)[key] = value; }
@@ -71,7 +82,7 @@ const EconomiaLab = (() => {
   }
   function controls() {
     if (s.tab === 'market') return `<h4>1. Elige una situación</h4>${select('market.mode','Gráfico que quieres explorar',[['demand','Demanda'],['supply','Oferta'],['equilibrium','Equilibrio'],['shifts','Desplazamientos']])}<div class="econ-presets">${button('preset','Equilibrio del apunte','data-preset="market-doc"')}${button('preset','Bebida del apunte','data-preset="beverage"')}${button('preset','Consultas de salud','data-preset="health"')}</div><p class="econ-source-label">${h(s.market.name)}</p>
-      <h4>2. Cambia los datos</h4><div class="econ-sheet-scroll"><table class="econ-sheet econ-market-table"><caption>Q horizontal · precios de demanda/oferta verticales</caption><thead><tr><th scope="col">Q</th><th scope="col">P demanda</th><th scope="col">P oferta</th><th scope="col"><span class="econ-sr">Quitar</span></th></tr></thead><tbody>${s.market.rows.map((r,i)=>`<tr>${r.map((v,j)=>`<td>${input(`market.rows.${i}.${j}`,`Fila ${i+1}, ${['cantidad Q','precio demanda','precio oferta'][j]}`)}</td>`).join('')}<td>${button('remove-row','×',`data-row="${i}" aria-label="Quitar fila ${i+1}" ${s.market.rows.length<=2?'disabled':''}`)}</td></tr>`).join('')}</tbody></table></div>${button('add-row','+ Fila',s.market.rows.length>=40?'disabled':'')}
+      <details class="econ-data" ${dataOpen ? 'open' : ''}><summary data-e-toggle="data">2. Editar la tabla de datos <small>(${s.market.rows.length} filas)</small></summary><div class="econ-sheet-scroll"><table class="econ-sheet econ-market-table"><caption>Q horizontal · precios de demanda/oferta verticales</caption><thead><tr><th scope="col">Q</th><th scope="col">P demanda</th><th scope="col">P oferta</th><th scope="col"><span class="econ-sr">Quitar</span></th></tr></thead><tbody>${s.market.rows.map((r,i)=>`<tr>${r.map((v,j)=>`<td>${input(`market.rows.${i}.${j}`,`Fila ${i+1}, ${['cantidad Q','precio demanda','precio oferta'][j]}`)}</td>`).join('')}<td>${button('remove-row','×',`data-row="${i}" aria-label="Quitar fila ${i+1}" ${s.market.rows.length<=2?'disabled':''}`)}</td></tr>`).join('')}</tbody></table></div>${button('add-row','+ Fila',s.market.rows.length>=40?'disabled':'')}</details>
       ${range('market.price','Precio observado ($)',0,Math.max(2500,...s.market.rows.flatMap(r=>r.slice(1)).filter(Number.isFinite))*1.5,1)}
       ${s.market.mode === 'shifts' ? `${range('market.demandShift','Cambio en demanda ($ por Q)',-Math.max(500,s.market.rows[0][1]),Math.max(500,s.market.rows[0][1]),1)}${range('market.supplyShift','Cambio en costos de oferta ($ por Q)',-Math.max(500,s.market.rows[0][1]),Math.max(500,s.market.rows[0][1]),1)}${check('market.baseline','Comparar con curvas iniciales')}` : ''}
       ${hint('Edita las celdas o mueve el precio. Azul: demanda; naranja: oferta. También puedes arrastrar el punto «P observado» del gráfico.')}`;
@@ -144,7 +155,9 @@ const EconomiaLab = (() => {
     catch(err) { return `<div class="econ-error" role="alert"><strong>Revisa los datos</strong><p>${h(err.message)}</p><p>Corrige la celda o usa Deshacer para continuar.</p></div>`; }
   }
   function html() {
-    return `<section id="econ-lab" class="econ-lab"><div class="econ-heading"><div><span class="study-eyebrow">ECONOMÍA DE LA SALUD · LABORATORIO</span><h2>Modifica, observa y comprende</h2><p>Explora los gráficos del apunte y resuelve situaciones de salud.</p></div><span class="econ-source-tag">Documento + práctica guiada</span></div><nav class="econ-tabs" aria-label="Laboratorios de economía">${tabs.map(([id,name])=>button('tab',name,`data-tab="${id}" aria-pressed="${s.tab===id}"`,s.tab===id)).join('')}</nav><div class="econ-toolbar"><div>${check('formulas','Mostrar fórmulas')}${check('hide','Ocultar resultados para practicar')}</div><div>${button('undo','Deshacer',history.length?'':'disabled')}${button('reset','Restablecer este laboratorio')}${button('download','Descargar datos')}</div></div><div class="econ-layout"><aside class="econ-controls" aria-label="Datos del laboratorio">${controls()}</aside><div class="econ-output" id="econ-output" aria-live="polite">${output()}</div></div><p id="econ-save" class="econ-save">${notice||'Los cambios se guardan en este navegador.'}</p><p class="econ-source-note">Base: RESUMEN ECONOMIA CLAUDE.docx. Los seis gráficos se reconstruyen con coordenadas calculadas; los escenarios de salud son simulados. Los controles y las ayudas funcionan sin IA.</p></section>`;
+    const index = tabs.findIndex(([id]) => id === s.tab), [, name, lesson, description] = tabs[index];
+    // data-action="lesson" is handled by the study page, which owns lesson navigation.
+    return `<section id="econ-lab" class="econ-lab"><nav class="econ-tabs" aria-label="Laboratorios de economía">${tabs.map(([id,label])=>button('tab',label,`data-tab="${id}" aria-pressed="${s.tab===id}"`,s.tab===id)).join('')}</nav><div class="econ-heading"><div><span class="study-eyebrow">LABORATORIO ${index + 1} DE ${tabs.length}</span><h2>${name}</h2><p>${description}</p></div><button type="button" class="study-btn secondary" data-action="lesson" data-id="${lesson}">Leer el tema →</button></div><div class="econ-toolbar"><div>${check('formulas','Mostrar fórmulas')}${check('hide','Ocultar resultados para practicar')}</div><div>${button('undo','Deshacer',history.length?'':'disabled')}${button('reset','Restablecer')}${button('download','Descargar datos')}</div></div><div class="econ-layout"><aside class="econ-controls" aria-label="Datos del laboratorio">${controls()}</aside><div class="econ-output" id="econ-output" aria-live="polite">${output()}</div></div><p id="econ-save" class="econ-save">${notice||'Los cambios se guardan en este navegador.'}</p><p class="econ-source-note">Base: RESUMEN ECONOMIA CLAUDE.docx. Los seis gráficos se reconstruyen con coordenadas calculadas; los escenarios de salud son simulados. Los controles y las ayudas funcionan sin IA.</p></section>`;
   }
   function render() {
     const el=document.getElementById('econ-lab');if(el)el.outerHTML=html();
@@ -193,6 +206,8 @@ const EconomiaLab = (() => {
       return true;
     }
     if(e.type!=='click')return false;
+    // The click fires before the native toggle, so the next state is the opposite of the current one.
+    if(e.target.closest('summary[data-e-toggle]')){dataOpen=!e.target.closest('details').open;return true;}
     const b=e.target.closest('[data-e-action]');if(!b||b.disabled)return false;
     const a=b.dataset.eAction;
     if(a==='tab'){s.tab=b.dataset.tab;feedback='';persist();render();document.querySelector(`[data-e-action="tab"][data-tab="${s.tab}"]`)?.focus({preventScroll:true});return true;}

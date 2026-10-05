@@ -145,7 +145,7 @@ export async function createApp({ env = process.env, fetchImpl = fetch, usageFil
             let result = await collectResponse(response.body, usage => { recorded = true; meter.record(usage); });
             if (data.generateExam) {
               const firstUsage = result.usage;
-              const review = examReviewPayload(payload, result.text);
+              const review = examReviewPayload(payload, result.text, data.examSize ?? 30, data.context.lessons.length);
               accepted = false; recorded = false;
               const checked = await openAI('/responses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(review) }, false, Math.max(1, Math.min(180000, deadline - Date.now())));
               accepted = true;
@@ -156,7 +156,7 @@ export async function createApp({ env = process.env, fetchImpl = fetch, usageFil
             if (data.generate) result.text = validateGeneratedQuestions(result.text, data.context.lessons);
             if (data.generateCase) { result.case = validateGeneratedCase(result.text, data.context.lessons, data.avoidCases || []); delete result.text; }
             if (data.generateMaterial) { result.material = validateGeneratedMaterial(result.text, data.context.lessons); delete result.text; }
-            if (data.generateExam) { result.exam = validateGeneratedExam(result.text, data.context.lessons); delete result.text; }
+            if (data.generateExam) { result.exam = validateGeneratedExam(result.text, data.context.lessons, data.examSize ?? 30); delete result.text; }
             await meter.flush();
             json(res, 200, result);
           } catch (err) {

@@ -7,7 +7,7 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   browser=await puppeteer.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--no-sandbox']});
   const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.setViewport({width:1280,height:1000});
   const base='http://127.0.0.1:18792';await page.goto(base);
-  const click=async a=>page.click(`#tab-estudio [data-action="${a}"]`), action=async a=>page.click(`[data-e-action="${a}"]`), tab=async id=>page.click(`[data-e-action="tab"][data-tab="${id}"]`);
+  const click=async a=>page.click(`#tab-estudio [data-action="${a}"]`), action=async a=>page.click(`[data-e-action="${a}"]`), tab=async id=>{const sel=`[data-e-action="tab"][data-tab="${id}"]`;await page.$eval(sel,e=>e.scrollIntoView({block:"center"}));await page.click(sel)};
   const set=async(field,value)=>page.$eval(`[data-e-field="${field}"]:not([type="range"])`,(el,v)=>{el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}))},value);
   const body=()=>page.$eval('#econ-output',el=>el.textContent);
   assert.equal(await page.$$eval('.study-subject-card[data-action="subject"]',n=>n.length),3);
@@ -44,13 +44,32 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   }
   await tab('scale');await page.setViewport({width:1280,height:1000});await page.screenshot({path:path.resolve(__dirname,'../test-results/economia-desktop.png'),fullPage:true});
   await page.setViewport({width:390,height:844});await page.waitForFunction(()=>document.querySelector('#econ-chart').viewBox.baseVal.width===360);await page.screenshot({path:path.resolve(__dirname,'../test-results/economia-mobile.png'),fullPage:true});
-  await click('subject');await click('home');assert.equal(await page.$$eval('.study-topic',n=>n.length),11);await page.click('[data-action="lesson"][data-id="econ-mercado"]');await page.type('#study-note','Mi explicación sobre desplazamientos');assert.ok(await page.$('[data-action="resources"][data-lab="market"]'));await click('topic-cards');await click('reveal');assert.ok(await page.$('.study-answer'));await click('known');
-  await page.reload();await page.click('[data-id="economia-salud"]');await click('home');await page.click('[data-action="lesson"][data-id="econ-mercado"]');assert.equal(await page.$eval('#study-note',e=>e.value),'Mi explicación sobre desplazamientos');await click('home');await click('cases');assert.equal(await page.$$eval('#study-case-select option',n=>n.length),3);
+  await click('subject');assert.equal(await page.$$eval('.study-topic',n=>n.length),11);await page.click('[data-action="lesson"][data-id="econ-mercado"]');await page.type('#study-note','Mi explicación sobre desplazamientos');assert.ok(await page.$('[data-action="resources"][data-lab="market"]'));await click('topic-cards');await click('reveal');assert.ok(await page.$('.study-answer'));await click('known');
+  await page.reload();await page.click('[data-id="economia-salud"]');await page.click('[data-action="lesson"][data-id="econ-mercado"]');assert.equal(await page.$eval('#study-note',e=>e.value),'Mi explicación sobre desplazamientos');await click('home');await click('cases');assert.equal(await page.$$eval('#study-case-select option',n=>n.length),3);
+  // Banco de preguntas: sorteo local de 10 a 20, corrección inmediata, nota de referencia, repaso e historial.
+  const tutorCalls=[];page.on('request',r=>{if(r.url().includes('/api/tutor'))tutorCalls.push(r.url())});
+  await click('home');assert.match(await page.$eval('.study-breadcrumbs',e=>e.textContent),/Inicio.*Economía de la Salud/);assert.equal(await page.$$eval('.econ-hub-card',n=>n.length),4);
+  await click('bank');await click('bank-start');
+  const total=await page.$eval('.study-exam-meta strong',e=>Number(e.textContent.match(/de (\d+)/)[1]));assert.ok(total>=10&&total<=20,'session size '+total);
+  const kinds=new Set();
+  for(let i=0;i<total;i++){kinds.add(await page.$eval('.study-bank-tags .study-badge',e=>e.textContent));await page.click('[data-action="bank-answer"][data-index="0"]');assert.ok(await page.$('.study-answer'));assert.equal(await page.$('[data-action="bank-answer"]:not([disabled])'),null,'Answers lock after replying');await page.click('[data-action="bank-next"]');}
+  assert.ok(kinds.has('Verdadero o falso')&&kinds.has('Selección múltiple'),'Session mixes formats');
+  await page.waitForSelector('#study-bank-result');assert.match(await page.$eval('#study-bank-result',e=>e.textContent),new RegExp('/'+total));
+  const bankHistory=await page.evaluate(()=>JSON.parse(localStorage.getItem('grd-estudio-v1')).history.filter(h=>h.type==='bank'));assert.equal(bankHistory.length,1);assert.equal(bankHistory[0].total,total);
+  const failed=total-bankHistory[0].correct;
+  if(failed){await click('bank-retry');assert.match(await page.$eval('.study-exam-meta strong',e=>e.textContent),new RegExp('de '+failed+'$'));}
+  await click('home');assert.match(await page.$eval('#tab-estudio',e=>e.textContent),/Banco de preguntas · /);
+  await page.click('[data-action="bank-topic"][data-id="econ-monopolio"]');assert.match(await page.$eval('.study-bank-tags',e=>e.textContent),/Monopolio/);
+  for(const width of [320,390,1280]){await page.setViewport({width,height:900});await new Promise(r=>setTimeout(r,100));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'bank overflows at '+width);}
+  await page.setViewport({width:390,height:844});await page.screenshot({path:path.resolve(__dirname,'../test-results/banco-mobile.png'),fullPage:true});
+  await click('home');for(const width of [320,390,1280]){await page.setViewport({width,height:900});await new Promise(r=>setTimeout(r,100));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'hub overflows at '+width);}
+  await page.screenshot({path:path.resolve(__dirname,'../test-results/economia-panel.png'),fullPage:true});
+  assert.equal(tutorCalls.length,0,'The bank never calls the AI');
   // Simulate an existing local subject. Opening the updated app must expand that exact subject.
   await page.evaluate(()=>{const old={id:'custom-economics',name:'Economía de la salud',source:'Material personal',lessons:[{id:'my-original-topic',title:'Mi tema anterior',text:'Mi material personal del ramo.',objective:'Mi objetivo',summary:['Mi guía'],materialStatus:'provided',questions:[]}],cases:[]};localStorage.setItem('grd-estudio-v1',JSON.stringify({subjects:[old],selected:old.id,lesson:'my-original-topic',progress:{'custom-economics/my-original-topic':{read:true}},notes:{'custom-economics/my-original-topic':'Apunte conservado'},history:[],caseSelection:{}}));});
-  await page.reload();assert.equal(await page.$$eval('.study-subject-card[data-action="subject"]',n=>n.length),3);assert.equal(await page.$('[data-id="economia-salud"]'),null);await page.click('[data-id="custom-economics"]');assert.ok(await page.$('[data-action="resources"]'));await click('home');assert.equal(await page.$$eval('.study-topic',n=>n.length),12);await page.click('[data-action="lesson"][data-id="my-original-topic"]');assert.equal(await page.$eval('#study-note',e=>e.value),'Apunte conservado');
+  await page.reload();assert.equal(await page.$$eval('.study-subject-card[data-action="subject"]',n=>n.length),3);assert.equal(await page.$('[data-id="economia-salud"]'),null);await page.click('[data-id="custom-economics"]');assert.ok(await page.$('[data-action="resources"]'));assert.equal(await page.$$eval('.study-topic',n=>n.length),12);await page.click('[data-action="lesson"][data-id="my-original-topic"]');assert.equal(await page.$eval('#study-note',e=>e.value),'Apunte conservado');
   assert.ok(await page.evaluate(()=>JSON.parse(localStorage.getItem('grd-estudio-antes-economia-v1')).subjects[0].lessons.length===1));
   await page.reload();const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('grd-estudio-v1')));assert.equal(saved.subjects[0].lessons.length,12);assert.equal(saved.subjects[0].cases.length,3);
-  assert.deepEqual(errors,[]);console.log('PASS: Economía, siete laboratorios, seis gráficos reconstruidos, ejercicios, persistencia, migración sin duplicados y responsive 320–1280.');
+  assert.deepEqual(errors,[]);console.log('PASS: Economía, panel único, banco de preguntas aleatorio, siete laboratorios, seis gráficos reconstruidos, ejercicios, persistencia, migración sin duplicados y responsive 320–1280.');
  }finally{if(browser)await browser.close();server.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});

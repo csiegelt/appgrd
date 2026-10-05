@@ -97,3 +97,58 @@ test('exam HTTP generation retains authentication, records usage even on invalid
   invalid=true;const bad=await call('tutor',input);assert.equal(bad.status,502);assert.equal(bad.data.exam,undefined);
   assert.equal((await call('usage')).data.totalTokens,1200);assert.equal(calls,4);
 });
+
+test('exams of 10 and 20 questions use matching schemas, topic coverage and grading', () => {
+  for (const size of [10, 20]) {
+    const payload = tutorPayload({ ...input, examSize: size }, [{ slug: input.model }]);
+    const schema = payload.text.format.schema.properties.questions;
+    assert.equal(schema.minItems, size); assert.equal(schema.maxItems, size);
+    assert.match(payload.instructions, new RegExp(`exactamente ${size} preguntas`));
+    const plan = examBlueprint(lessons, size);
+    assert.equal(plan.reduce((n, b) => n + b.count, 0), size);
+    assert.equal(new Set(plan.map(b => b.sourceTitle)).size, Math.min(size, lessons.length));
+    const reviewed = examReviewPayload(payload, JSON.stringify({ questions: rawQuestions().slice(0, size) }), size, lessons.length);
+    assert.match(reviewed.instructions, new RegExp(`${size} en total`));
+  }
+  for (const bad of [5, 15, 31, '10']) assert.throws(() => tutorPayload({ ...input, examSize: bad }, [{ slug: input.model }]), e => e.status === 400);
+  // Ten questions over eleven topics: each question must come from a different topic.
+  const ten = lessons.slice(0, 10).map((l, i) => ({ prompt: `Pregunta corta ${i}`, options: ['Primera', 'Segunda', 'Tercera', 'Cuarta'], answer: 'Primera', explanation: 'Fundamento', sourceTitle: l.title }));
+  assert.equal(validateGeneratedExam(JSON.stringify({ questions: ten }), lessons, 10).questions.length, 10);
+  const repeated = ten.map((q, i) => i === 1 ? { ...q, sourceTitle: ten[0].sourceTitle } : q);
+  assert.throws(() => validateGeneratedExam(JSON.stringify({ questions: repeated }), lessons, 10), e => e.status === 502);
+  assert.throws(() => validateGeneratedExam(JSON.stringify({ questions: ten }), lessons, 20), e => e.status === 502);
+  // Twenty questions over eleven topics must still cover all of them.
+  const twenty = Array.from({ length: 20 }, (_, i) => ({ prompt: `Pregunta ${i}`, options: ['Primera', 'Segunda', 'Tercera', 'Cuarta'], answer: 'Segunda', explanation: 'Fundamento', sourceTitle: lessons[i % 11].title }));
+  assert.equal(validateGeneratedExam(JSON.stringify({ questions: twenty }), lessons, 20).questions.length, 20);
+  assert.throws(() => validateGeneratedExam(JSON.stringify({ questions: twenty.map(q => q.sourceTitle === lessons[10].title ? { ...q, sourceTitle: lessons[0].title } : q) }), lessons, 20), e => e.status === 502);
+
+  const ready = items => items.map(({ answer, ...q }) => ({ ...q, answerIndex: q.options.indexOf(answer) }));
+  const attempt = rules.create(ready(ten), .6, Math.random, 10);
+  assert.equal(attempt.answers.length, 10);
+  attempt.answers = attempt.questions.map((q, i) => i < 6 ? q.answerIndex : null);
+  const result = rules.score(attempt);
+  assert.equal(result.total, 10); assert.equal(result.correct, 6); assert.equal(result.omitted, 4); assert.equal(result.grade, 4);
+  assert.equal(rules.restore(JSON.parse(JSON.stringify(attempt))).questions.length, 10);
+  assert.equal(rules.restore({ ...attempt, index: 10 }), null);
+  assert.throws(() => rules.create(ready(ten), .6, Math.random, 20));
+  assert.throws(() => rules.create(ready(ten).slice(0, 7)));
+  assert.equal(rules.grade(12, 20, .6).grade, 4); assert.equal(rules.grade(20, 20, .6).grade, 7);
+});
+
+test('exam HTTP generation honors the requested size in the draft, review and validation', async t => {
+  const bodies = [];
+  const server = await startServer(0, { env: { OPENAI_API_KEY: 'test-key' }, usageFile: null, fetchImpl: async (_, options) => {
+    const body = JSON.parse(options.body); bodies.push(body);
+    const items = lessons.slice(0, 10).map((l, i) => ({ prompt: `Pregunta HTTP ${i}`, options: ['Primera', 'Segunda', 'Tercera', 'Cuarta'], answer: 'Tercera', explanation: 'Fundamento', sourceTitle: l.title }));
+    return new Response('data: ' + JSON.stringify({ type: 'response.completed', response: { status: 'completed', usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 }, output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ questions: items }) }] }] } }) + '\n\n');
+  } });
+  t.after(() => new Promise(done => { server.close(done); server.closeAllConnections(); }));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const session = await fetch(origin + '/api/session'), cookie = session.headers.get('set-cookie').split(';')[0];
+  const r = await fetch(origin + '/api/tutor', { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ ...input, examSize: 10 }) });
+  const data = await r.json();
+  assert.equal(r.status, 200, JSON.stringify(data)); assert.equal(data.exam.questions.length, 10);
+  assert.equal(bodies.length, 2);
+  for (const body of bodies) assert.equal(body.text.format.schema.properties.questions.maxItems, 10);
+  assert.match(bodies[1].instructions, /10 en total, distintas y cada una de un tema distinto/);
+});

@@ -8,7 +8,7 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
   page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewport({width:390,height:844});
-  let requests=0,fail=false,hold=false,release,waiting,expectedTopics=11;
+  let requests=0,fail=false,hold=false,release,waiting,expectedTopics=11,lastSize=0;
   await page.setRequestInterception(true);
   page.on('request',async req=>{
    const url=new URL(req.url());if(!url.pathname.startsWith('/api/'))return req.continue();
@@ -16,11 +16,11 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
    if(url.pathname==='/api/session')body={available:true,provider:'openai-api',configured:true,connected:true,authRequired:false,protected:false,models:[{slug:'test-model',display_name:'Test'}]};
    if(url.pathname==='/api/usage')body={configured:true,model:'test-model',totalTokens:requests*300,rateLimits:[],quota:{state:'unknown'}};
    if(url.pathname==='/api/tutor'){
-    requests++;const data=JSON.parse(req.postData());assert.equal(data.generateExam,true);assert.equal(data.generate,undefined);assert.equal(data.web,undefined);assert.equal(data.context.name,'Economía de la Salud');assert.equal(data.context.lessons.length,expectedTopics);
+    requests++;const data=JSON.parse(req.postData());assert.equal(data.generateExam,true);assert.equal(data.generate,undefined);assert.equal(data.web,undefined);assert.equal(data.context.name,'Economía de la Salud');assert.equal(data.context.lessons.length,expectedTopics);assert.ok([10,20,30].includes(data.examSize));lastSize=data.examSize;
     if(expectedTopics===12)assert.ok(data.context.lessons.some(l=>l.title==='Mi tema ingresado'&&l.text.includes('Contenido personal actualizado')));
     if(hold)await new Promise(done=>{release=done;waiting()});
     if(fail)return req.respond({status:502,contentType:'application/json',body:JSON.stringify({error:'La IA no entregó una prueba completa. Tu prueba anterior se conserva.'})});
-    body={exam:{questions:Array.from({length:30},(_,i)=>({prompt:`Ejercicio simulado ${i+1}: ¿cuál es la interpretación correcta del concepto?`,options:['Opción A','Opción B','Opción C','Opción D'],answerIndex:i%4,explanation:'Explicación reservada hasta entregar '+i,sourceTitle:data.context.lessons[i%11].title}))}};
+    body={exam:{questions:Array.from({length:data.examSize},(_,i)=>({prompt:`Ejercicio simulado ${i+1}: ¿cuál es la interpretación correcta del concepto?`,options:['Opción A','Opción B','Opción C','Opción D'],answerIndex:i%4,explanation:'Explicación reservada hasta entregar '+i,sourceTitle:data.context.lessons[i%11].title}))}};
    }
    return req.respond({status:200,contentType:'application/json',body:JSON.stringify(body)});
   });
@@ -32,10 +32,14 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   await page.goto('http://127.0.0.1:18793');await enter();
   await page.waitForFunction(()=>document.querySelector('[data-action="generate-exam"]')?.disabled===false);
   assert.equal(await page.$eval('#study-exam-threshold',e=>e.value),'0.6');
+  assert.equal(await page.$eval('[data-action="set-exam-size"][aria-pressed="true"]',e=>e.dataset.size),'10','Ten questions by default');
+  assert.match(await page.$eval('#study-exam-threshold',e=>e.textContent),/6 correctas de 10/);
+  await tap('[data-action="set-exam-size"][data-size="30"]');
+  assert.match(await page.$eval('#study-exam-threshold',e=>e.textContent),/18 correctas de 30/);assert.match(await page.$eval('[data-action="generate-exam"]',e=>e.textContent),/30 preguntas/);
   hold=true;const sent=new Promise(done=>{waiting=done});await click('generate-exam');await sent;
   assert.equal(await page.$eval('[data-action="generate-exam"]',e=>e.disabled),true);
-  assert.equal(await page.$eval('#study-exam-threshold',e=>e.disabled),true);release();hold=false;
-  await page.waitForSelector('#study-exam-prompt');assert.equal(requests,1);
+  assert.equal(await page.$eval('#study-exam-threshold',e=>e.disabled),true);assert.equal(await page.$eval('[data-action="set-exam-size"]',e=>e.disabled),true);release();hold=false;
+  await page.waitForSelector('#study-exam-prompt');assert.equal(requests,1);assert.equal(lastSize,30);
   assert.equal(await page.$$eval('[data-action="exam-answer"]',els=>els.length),4);
   assert.equal(await page.$$eval('[data-action="exam-jump"]',els=>els.length),30);
   assert.equal(await page.$('#study-exam-result'),null);assert.equal(await page.$('.study-exam-review'),null);
@@ -76,13 +80,14 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   fail=false;expectedTopics=12;
   await page.evaluate(()=>{const state=JSON.parse(localStorage.getItem('grd-estudio-v1'));let subject=state.subjects.find(s=>s.id==='economia-salud');if(!subject){subject=structuredClone(ECONOMIA_ASIGNATURA);state.subjects.push(subject)}subject.lessons.push({id:'my-exam-topic',title:'Mi tema ingresado',text:'Contenido personal actualizado para la siguiente prueba.',objective:'Comprender',summary:[],questions:[]});localStorage.setItem('grd-estudio-v1',JSON.stringify(state))});
   await page.reload();await enter();await page.waitForFunction(()=>document.querySelector('[data-action="generate-exam"]')?.disabled===false);
-  await page.select('#study-exam-threshold','0.5');await click('generate-exam');await page.waitForSelector('#study-exam-prompt');
+  await tap('[data-action="set-exam-size"][data-size="10"]');await page.select('#study-exam-threshold','0.5');await click('generate-exam');await page.waitForSelector('#study-exam-prompt');
+  assert.equal(lastSize,10);assert.equal(await page.$$eval('[data-action="exam-jump"]',els=>els.length),10);assert.equal((await attempt()).questions.length,10);
   assert.equal((await attempt()).threshold,.5);assert.equal((await attempt()).answers.filter(a=>a!==null).length,0);
   assert.notEqual((await attempt()).id,previous.id);assert.equal((await history()).length,1);
   await click('exam-deliver');await click('exam-finish');assert.equal(await page.$eval('#study-exam-result .study-result-score',e=>e.textContent),'1,0');assert.equal((await history()).length,2);
   await click('home');assert.match(await page.$eval('#tab-estudio',e=>e.textContent),/Nota 4,0/);
   await click('library');await page.click('[data-action="subject"][data-id="sistemas-salud"]');assert.equal(await page.$('[data-action="exam"]'),null);
-  assert.deepEqual(errors,[]);console.log('PASS: 30-question AI exam, delayed feedback, grade, omissions, navigation, resume, immutable result, history, generation recovery and responsive 320–1280.');
+  assert.deepEqual(errors,[]);console.log('PASS: 10/20/30-question AI exam, delayed feedback, grade, omissions, navigation, resume, immutable result, history, generation recovery and responsive 320–1280.');
  }catch(error){if(page){await page.screenshot({path:path.resolve(__dirname,'../test-results/prueba-error.png'),fullPage:true});console.error(await page.$eval('#tab-estudio',e=>e.textContent.slice(0,1200)))}throw error}
  finally{if(browser)await browser.close();server.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});
