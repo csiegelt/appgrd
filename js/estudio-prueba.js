@@ -1,9 +1,10 @@
 /* Pure exam rules, shared by rendering, local persistence and browser checks. */
 const PruebaEstudio = (() => {
-  const SIZES = [10, 20, 30];
+  // New attempts offer SIZES; SAVED also restores attempts created by earlier versions.
+  const SIZES = [10, 15], SAVED = [10, 15, 20, 30];
   const normalized = value => value.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
   function questions(items, size) {
-    if (!Array.isArray(items) || !SIZES.includes(items.length) || (size !== undefined && items.length !== size)) throw Error(`Se necesitan ${size || 'las'} preguntas completas. Vuelve a generar la prueba.`);
+    if (!Array.isArray(items) || !SAVED.includes(items.length) || (size !== undefined && items.length !== size)) throw Error(`Se necesitan ${size || 'las'} preguntas completas. Vuelve a generar la prueba.`);
     const result = items.map(q => {
       if (!q || !['prompt', 'sourceTitle', 'explanation'].every(k => typeof q[k] === 'string' && q[k].trim()) ||
           !Array.isArray(q.options) || q.options.length !== 4 || !q.options.every(o => typeof o === 'string' && o.trim()) ||
@@ -24,8 +25,9 @@ const PruebaEstudio = (() => {
     for (let i = result.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [result[i], result[j]] = [result[j], result[i]]; }
     return result;
   }
-  function create(items, threshold = 0.6, random = Math.random, size) {
+  function create(items, threshold = 0.6, random = Math.random, size = items?.length) {
     grade(0, 30, threshold);
+    if (!SIZES.includes(size)) throw Error(`Elige una prueba de ${SIZES.join(' o ')} preguntas.`);
     const mixed = shuffle(questions(items, size), random).map(q => {
       const answer = q.options[q.answerIndex], options = shuffle(q.options, random);
       return { ...q, options, answerIndex: options.indexOf(answer) };

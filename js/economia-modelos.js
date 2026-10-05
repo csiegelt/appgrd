@@ -13,15 +13,19 @@ const EconomiaModelos = (() => {
     }
     return rows.at(-1)[column];
   }
+  // Consecutive table rows whose prices enclose the given price (also shown in the applied formula).
+  function bracket(rows, price, column) {
+    for (let i = 1; i < rows.length; i++) if ((price - rows[i - 1][column]) * (price - rows[i][column]) <= 0) return [rows[i - 1], rows[i]];
+    return null;
+  }
   function quantity(rows, price, column) {
     const increasing = column === 2;
     if (price < Math.min(rows[0][column], rows.at(-1)[column])) return increasing ? rows[0][0] : rows.at(-1)[0];
     if (price > Math.max(rows[0][column], rows.at(-1)[column])) return increasing ? rows.at(-1)[0] : rows[0][0];
-    for (let i = 1; i < rows.length; i++) {
-      const a = rows[i - 1], b = rows[i];
-      if ((price - a[column]) * (price - b[column]) <= 0) return a[0] + (b[0] - a[0]) * (price - a[column]) / (b[column] - a[column]);
-    }
-    return null;
+    const pair = bracket(rows, price, column);
+    if (!pair) return null;
+    const [a, b] = pair;
+    return a[0] + (b[0] - a[0]) * (price - a[column]) / (b[column] - a[column]);
   }
   function market(s) {
     if (!Array.isArray(s.rows) || s.rows.length < 2 || s.rows.length > 40) throw Error('Usa entre 2 y 40 filas.');
@@ -88,5 +92,5 @@ const EconomiaModelos = (() => {
     for (let t = 1; t <= s.years; t++) rows.push([t, rows[t - 1][1] * (1 - s.delta / 100) + s.investment, rows[t - 1][2] * (1 - s.delta / 100)]);
     return rows;
   }
-  return { number, interpolate, market, elasticity, costs, monopoly, insurance, grossman };
+  return { number, interpolate, bracket, market, elasticity, costs, monopoly, insurance, grossman };
 })();

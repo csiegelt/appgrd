@@ -137,6 +137,9 @@
 .study-exam-setup { border-top: 4px solid var(--study-teal); }
 .study-exam-setup label { display: grid; max-width: 320px; margin: 18px 0; }
 .study-exam-setup > .study-btn { width: 100%; }
+.study-exam-new { margin-top: 18px; border: 1px solid #d3e2dc; border-radius: 16px; background: #fff; padding: 4px 18px; }
+.study-exam-new > summary { cursor: pointer; font-weight: 700; padding: 12px 0; color: var(--study-teal); }
+.study-exam-inline { border: 0; border-top: 1px solid #e3eae6; border-radius: 0; padding: 4px 0 14px; margin: 0; box-shadow: none; }
 .study-exam-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: calc(13px * var(--font-scale)); margin: 14px 0; }
 .study-exam-meta > span { color: var(--study-muted); }
 .study-exam-nav { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }

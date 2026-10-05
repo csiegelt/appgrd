@@ -12,7 +12,7 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   const body=()=>page.$eval('#econ-output',el=>el.textContent);
   assert.equal(await page.$$eval('.study-subject-card[data-action="subject"]',n=>n.length),3);
   await page.click('[data-id="economia-salud"]');await click('resources');assert.ok(await page.$('#econ-chart'));assert.equal(await page.$('iframe'),null);
-  assert.match(await body(),/\$900 · Q 3/);await set('market.price',1500);assert.match(await body(),/exceso de oferta de 4/);
+  assert.match(await body(),/\$900 · Q 3/);await set('market.price',1500);assert.match(await body(),/exceso de oferta de 4/);assert.match(await page.$eval('.econ-formula-applied',e=>e.textContent),/\$1\.500/,'The applied formula follows the edited price');
   await set('market.price',500);assert.match(await body(),/exceso de demanda de 4/);
   await action('add-row');assert.equal(await page.$$eval('.econ-market-table tbody tr',n=>n.length),9);await action('undo');assert.equal(await page.$$eval('.econ-market-table tbody tr',n=>n.length),8);
   await set('market.rows.1.0',0);assert.match(await body(),/sin repetir cantidades/);assert.equal(await page.$('#econ-chart'),null);await action('undo');assert.ok(await page.$('#econ-chart'));
@@ -22,9 +22,9 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   await page.$eval('[data-e-drag="price"]',el=>el.scrollIntoView({block:'center'}));
   const point=await page.$eval('[data-e-drag="price"]',el=>{const b=el.getBoundingClientRect();return{x:b.x+b.width/2,y:b.y+b.height/2}});
   await page.mouse.move(point.x,point.y);await page.mouse.down();await page.mouse.move(point.x,point.y-25,{steps:4});await page.mouse.up();assert.ok(await page.$eval('[data-e-field="market.price"][type="number"]',el=>Number(el.value)>900));
-  await tab('elasticity');assert.match(await body(),/0,474/);await set('elasticity.p2',20000);assert.match(await body(),/ΔP = 0/);await action('undo');assert.ok(await page.$('#econ-chart'));
+  await tab('elasticity');assert.match(await body(),/0,474/);assert.match(await page.$eval('.econ-formula-applied',e=>e.textContent),/90 − 100[\s\S]*0,474/);assert.ok(await page.$$eval('.econ-formula var',l=>l.length>=8),'Inputs are highlighted in the formula');await set('elasticity.p2',20000);assert.match(await body(),/ΔP = 0/);await action('undo');assert.ok(await page.$('#econ-chart'));
   await tab('scale');assert.match(await body(),/15.000/);assert.match(await body(),/10.000/);
-  await page.click('[data-e-field="hide"]');assert.equal(await page.$('.econ-results'),null);assert.equal(await page.$('.econ-stats'),null);
+  await page.click('[data-e-field="hide"]');assert.equal(await page.$('.econ-results'),null);assert.ok(await page.$$eval('.econ-formula-applied b',l=>l.length>0&&l.every(b=>b.textContent==='= ?')),'Hidden results stay hidden in the applied formula');assert.equal(await page.$('.econ-stats'),null);
   for(const [i,value] of ['15000','10000','-33,33'].entries())await page.type(`[data-e-answer="${i}"]`,value);
   await page.click('#econ-exercise-form [type="submit"]');assert.equal(await page.$$eval('.econ-correct',n=>n.length),3);
   await action('new-exercise');assert.equal(await page.$eval('[data-e-answer="0"]',e=>e.value),'');assert.ok(await page.$('#econ-chart'));

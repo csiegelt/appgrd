@@ -10,7 +10,8 @@ import { sessionTokens } from '../lib/session-token.mjs';
 import { serverConfig } from '../server.mjs';
 
 const origin = 'https://appgrd.vercel.app', password = 'test-vercel-access-password';
-const env = { APP_ORIGIN: origin, APP_PASSWORD: password, OPENAI_API_KEY: 'test-key-not-a-real-secret', OPENAI_MODEL: 'gpt-4.1-mini' };
+// APP_SHOW_USAGE keeps the counter assertions below; its default on Vercel is covered separately.
+const env = { APP_ORIGIN: origin, APP_PASSWORD: password, OPENAI_API_KEY: 'test-key-not-a-real-secret', OPENAI_MODEL: 'gpt-4.1-mini', APP_SHOW_USAGE: '1' };
 const input = { model: env.OPENAI_MODEL, context: { name: 'Salud', lessons: [{ title: 'Tema', text: 'Material docente.' }] }, messages: [{ role: 'user', content: 'Explica el tema' }] };
 
 async function instance(t, settings = env, fetchImpl = () => { throw Error('Unexpected provider request'); }, parsed = false) {
@@ -115,6 +116,15 @@ test('Vercel without a password opens the tutor directly, reuses anonymous sessi
   const missing=await missingKey('/api/session');
   assert.equal(missing.data.configured,false);assert.equal(missing.data.connected,false);assert.equal(missing.data.authRequired,false);
   assert.equal((await missingKey('/api/check',{},missing.cookie)).status,503);
+});
+
+test('the shared token counter stays hidden on Vercel unless APP_SHOW_USAGE=1',async t=>{
+  const publicEnv={...env};delete publicEnv.APP_PASSWORD;delete publicEnv.APP_SHOW_USAGE;
+  const call=await instance(t,publicEnv),start=await call('/api/session');
+  const hidden=await call('/api/usage',undefined,start.cookie);
+  assert.equal(hidden.status,404);assert.equal(hidden.data.code,'USAGE_HIDDEN');assert.equal(hidden.data.totalTokens,undefined);
+  const visible=await instance(t,{...publicEnv,APP_SHOW_USAGE:'1'}),again=await visible('/api/session');
+  assert.equal((await visible('/api/usage',undefined,again.cookie)).status,200);
 });
 
 test('signed sessions reject expiry, altered claims, changed audience and malformed tokens',()=>{

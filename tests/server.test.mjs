@@ -196,3 +196,10 @@ test('SSE parsing requires completion and preserves citations across split chunk
   await assert.rejects(collectResponse(Readable.from([Buffer.from('data: {"type":"response.output_text.delta","delta":"partial"}\n\n')])), err => err.status === 502);
   await assert.rejects(collectResponse(Readable.from([Buffer.from('data: {"type":"response.failed"}\n\n')])), err => err.status === 502);
 });
+
+test('the token counter is visible locally and hidden on public hosting unless APP_SHOW_USAGE=1', () => {
+  assert.equal(serverConfig({}).showUsage, true);
+  assert.equal(serverConfig({ HOST: '0.0.0.0', APP_ORIGIN: 'https://estudio.example.cl' }).showUsage, false);
+  assert.equal(serverConfig({ HOST: '0.0.0.0', APP_ORIGIN: 'https://estudio.example.cl', APP_SHOW_USAGE: '1' }).showUsage, true);
+  assert.equal(serverConfig({ VERCEL: '1', VERCEL_PROJECT_PRODUCTION_URL: 'appgrd.vercel.app' }).showUsage, false);
+});

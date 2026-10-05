@@ -11,7 +11,7 @@ import { createUsageMeter } from './lib/usage.mjs';
 import { validateGeneratedCase } from './lib/cases.mjs';
 import { validateGeneratedMaterial } from './lib/material.mjs';
 import { sessionTokens } from './lib/session-token.mjs';
-import { validateGeneratedExam, examReviewPayload } from './lib/exam.mjs';
+import { validateGeneratedExam, examReviewPayload, examSize } from './lib/exam.mjs';
 export { collectResponse, tutorPayload } from './lib/tutor.mjs';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -47,7 +47,9 @@ export function serverConfig(env = process.env) {
   }
   const publicAddress = vercel || host === '0.0.0.0' || (origin && !['127.0.0.1', 'localhost'].includes(new URL(origin).hostname));
   if (publicAddress && !origin.startsWith('https://')) throw Error('Para publicar configura APP_ORIGIN con la dirección HTTPS del portal.');
-  return { host, apiKey, model, password, origin, vercel };
+  // The shared token counter reveals everyone's activity, so public deployments hide it unless enabled.
+  const showUsage = env.APP_SHOW_USAGE === '1' || !publicAddress;
+  return { host, apiKey, model, password, origin, vercel, showUsage };
 }
 
 export async function createApp({ env = process.env, fetchImpl = fetch, usageFile = env.VERCEL === '1' ? null : resolve(ROOT, '.local', 'api-usage.json') } = {}) {
@@ -110,6 +112,7 @@ export async function createApp({ env = process.env, fetchImpl = fetch, usageFil
           json(res, 200, { available: true, provider: 'openai-api', configured, connected: configured && s.authorized, authRequired: !s.authorized, protected: !!config.password, models: s.authorized && configured ? models : [] }); return;
         }
         if (url.pathname === '/api/usage' && req.method === 'GET') {
+          if (!config.showUsage) throw new PublicError('El contador de consumo no se muestra en esta publicación.', 404, 'USAGE_HIDDEN');
           if (!s.authorized) throw new PublicError('Ingresa al tutor para consultar el consumo de la API.', 401);
           json(res, 200, { configured, ...meter.snapshot(), ...(config.vercel ? { scope: 'instance', persistenceWarning: true } : {}) }); return;
         }
@@ -145,7 +148,7 @@ export async function createApp({ env = process.env, fetchImpl = fetch, usageFil
             let result = await collectResponse(response.body, usage => { recorded = true; meter.record(usage); });
             if (data.generateExam) {
               const firstUsage = result.usage;
-              const review = examReviewPayload(payload, result.text, data.examSize ?? 30, data.context.lessons.length);
+              const review = examReviewPayload(payload, result.text, examSize(data.examSize), data.context.lessons.length);
               accepted = false; recorded = false;
               const checked = await openAI('/responses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(review) }, false, Math.max(1, Math.min(180000, deadline - Date.now())));
               accepted = true;
@@ -156,7 +159,7 @@ export async function createApp({ env = process.env, fetchImpl = fetch, usageFil
             if (data.generate) result.text = validateGeneratedQuestions(result.text, data.context.lessons);
             if (data.generateCase) { result.case = validateGeneratedCase(result.text, data.context.lessons, data.avoidCases || []); delete result.text; }
             if (data.generateMaterial) { result.material = validateGeneratedMaterial(result.text, data.context.lessons); delete result.text; }
-            if (data.generateExam) { result.exam = validateGeneratedExam(result.text, data.context.lessons, data.examSize ?? 30); delete result.text; }
+            if (data.generateExam) { result.exam = validateGeneratedExam(result.text, data.context.lessons, examSize(data.examSize)); delete result.text; }
             await meter.flush();
             json(res, 200, result);
           } catch (err) {
