@@ -78,7 +78,13 @@ const EconomiaModelos = (() => {
     pos(s.a, 'Intercepto de demanda'); pos(s.b, 'Pendiente de demanda'); number(s.c, 'Costo marginal inicial', 0, 1e9); number(s.d, 'Pendiente del costo marginal', 0, 1e6);
     const qc = Math.max(0, (s.a - s.c) / (s.b + s.d)), qm = Math.max(0, (s.a - s.c) / (2 * s.b + s.d));
     const pc = s.a - s.b * qc, pm = s.a - s.b * qm;
-    return { qc, qm, pc, pm, dwl: 0.5 * (qc - qm) * Math.max(0, pm - (s.c + s.d * qm)), trade: s.a > s.c };
+    const consumer = 0.5 * (s.a - pm) * qm;
+    const producer = (pm - s.c) * qm - 0.5 * s.d * qm * qm;
+    const consumerCompetitive = 0.5 * (s.a - pc) * qc;
+    const producerCompetitive = 0.5 * s.d * qc * qc;
+    return { qc, qm, pc, pm, consumer, producer, consumerCompetitive, producerCompetitive,
+      consumerLoss: consumerCompetitive - consumer, producerGain: producer - producerCompetitive,
+      dwl: 0.5 * (qc - qm) * Math.max(0, pm - (s.c + s.d * qm)), trade: s.a > s.c };
   }
   function insurance(s) {
     pos(s.price, 'Precio'); pos(s.intercept, 'Demanda a precio cero'); number(s.slope, 'Sensibilidad', 0, 1e6); number(s.copay, 'Copago', 0, 100);

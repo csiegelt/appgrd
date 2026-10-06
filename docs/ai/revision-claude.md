@@ -1,4 +1,4 @@
-# Revisión del hotfix
+# Revisión de cambios en producción
 
 Se reutilizan los scripts de revisión aprobados del checkout colaborativo
 `6e612d3e2a994350d0906149e97db1788b5a416d`; cambia la rama exigida a
@@ -6,10 +6,10 @@ Se reutilizan los scripts de revisión aprobados del checkout colaborativo
 contexto (los puntos del nombre no son navegación de directorios). Las demás
 rutas con `..` siguen rechazadas. No se incorpora el runtime colaborativo.
 
-1. Actualizar `docs/ai/tasks/hotfix-exams.json` y la evidencia pública sintética.
-2. `npm run ai -- test hotfix-exams`.
+1. Actualizar `docs/ai/tasks/<tarea>.json` y la evidencia pública sintética.
+2. `npm run ai -- test <tarea>` usando la tarea vigente de `AGENTS.md`.
 3. Crear commit con todos los cambios autorizados.
-4. `npm run ai -- review hotfix-exams` y leer el JSON guardado en `.local`.
+4. `npm run ai -- review <tarea>` y leer el JSON guardado en `.local`.
 5. Corregir, probar y crear otro commit; hasta tres correcciones después de la
    revisión inicial. Bloqueos o presupuesto agotado se entregan como pendientes.
 

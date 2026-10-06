@@ -37,6 +37,33 @@ test('monopoly uses MR=MC then price on demand, and a correct welfare triangle',
   const r=M.monopoly({a:1500,b:200,c:300,d:200});
   for(const [k,v] of Object.entries({qc:3,pc:900,qm:2,pm:1100,dwl:200}))close(r[k],v);
   assert.equal(M.monopoly({a:100,b:20,c:200,d:0}).trade,false);
+  for(const [k,v] of Object.entries({consumer:400,producer:1200,consumerCompetitive:900,producerCompetitive:900,consumerLoss:500,producerGain:300}))close(r[k],v);
+  for(const d of [0,25,200,1000]){
+    const w=M.monopoly({a:1500,b:200,c:300,d});
+    close(w.consumerLoss-w.producerGain,w.dwl);
+    close(w.consumerCompetitive+w.producerCompetitive-w.consumer-w.producer,w.dwl);
+    assert.ok(w.consumer>=0&&w.producer>=0&&w.consumerLoss>=0&&w.producerGain>=0);
+  }
+  const none=M.monopoly({a:100,b:20,c:200,d:0});
+  for(const k of ['consumer','producer','consumerCompetitive','producerCompetitive','consumerLoss','producerGain','dwl'])close(none[k],0);
+});
+
+test('scale results reconcile monthly totals, per-unit costs, derivatives and percentage changes',()=>{
+  const short={mode:'short',fixed:1000000,variable:5000,congestion:10,qa:100,qb:200};
+  let r=M.costs(short);
+  close(r.a.total,1600000);close(r.b.total,2400000);close(r.a.average,16000);close(r.b.average,12000);close(r.change,-25);close(r.marginal(100),7000);close(r.marginal(200),9000);
+  r=M.costs({...short,fixed:0,variable:0,congestion:0});close(r.a.average,0);close(r.b.average,0);assert.equal(r.change,null);
+  r=M.costs({...short,qb:100});close(r.change,0);
+  for(const alpha of [.2,.8,1,1.2,2])for(const [qa,qb] of [[100,200],[200,100],[100,100]]){
+    const v={mode:'long',c0:1500000,q0:100,alpha,qa,qb},w=M.costs(v);
+    close(w.b.average/w.a.average,(qb/qa)**(alpha-1));
+    close(w.change,((qb/qa)**(alpha-1)-1)*100);
+    for(const p of [w.a,w.b]){
+      close(p.average*p.q,p.total);close(w.marginal(p.q),alpha*p.average);
+      const dq=.001,finiteDifference=(w.total(p.q+dq)-w.total(p.q-dq))/(2*dq);
+      assert.ok(Math.abs(finiteDifference-w.marginal(p.q))<.001);
+    }
+  }
 });
 test('insurance spending reconciles and Grossman depreciates the evolving stock',()=>{
   let r=M.insurance({price:20000,intercept:150,slope:.005,copay:25});close(r.q,125);close(r.insurer,1875000);close(r.total,r.patient+r.insurer);

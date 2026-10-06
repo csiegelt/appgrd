@@ -1,0 +1,29 @@
+{
+  "id": "economics-graphs",
+  "base_sha": "3ab7dd8b24163bf4a365f6dafadaede3a2570547",
+  "objective": "Make economics charts readable with dashed projections, explanatory hover/focus/touch labels, surplus and deadweight-loss regions; verify and explain the economies-of-scale results.",
+  "scope": [
+    "Add dashed projections and exact coordinate keys to the six existing economics curve charts; show supplied quantity separately when it differs from demand.",
+    "Explain points, curves and monopoly areas through mouse, keyboard focus and tap; retain a textual explanation, Escape dismissal, viewport bounds and the original layout.",
+    "Calculate consumer/producer surplus and their changes relative to competition, distinguish transfer from deadweight loss and explain the fixed-cost limitation.",
+    "Verify the existing short/long-run cost models; show marginal cost and units in results and clarify percentage changes, equal/reversed volumes and zero-cost cases.",
+    "Preserve hidden-results mode, saved exercises, all existing subject data and the approved AI exam hotfix."
+  ],
+  "restrictions": [
+    "No push, merge, deployment, credentials, databases or changes outside this worktree.",
+    "Only synthetic code-review evidence. One implementer and no edits while Claude reviews.",
+    "Initial code review plus at most three correction rounds; never treat blocked or incomplete review as approval.",
+    "No new dependencies or external services; do not change the classroom feature branch or running local application."
+  ],
+  "previous_findings": [],
+  "files": [
+    "AGENTS.md", "docs/ai/revision-claude.md", "docs/ai/economics-graphs.md", "docs/ai/tasks/economics-graphs.json",
+    "js/economia-lab.js", "js/economia-modelos.js", "js/economia-contenido.js", "js/estudio.js", "css/economia.css",
+    "tests/economia.test.mjs", "tests/browser-economia.cjs", "tests/hotfix-ui.test.mjs", "package.json"
+  ],
+  "tests": [
+    "tests/ai-review.test.mjs", "tests/banco.test.mjs", "tests/cases.test.mjs", "tests/economia.test.mjs",
+    "tests/exam.test.mjs", "tests/formulas.test.mjs", "tests/material.test.mjs", "tests/server.test.mjs",
+    "tests/study.test.mjs", "tests/usage.test.mjs", "tests/vercel.test.mjs", "tests/hotfix-ui.test.mjs"
+  ]
+}

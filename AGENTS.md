@@ -2,11 +2,12 @@
 
 Codex implementa; Claude Code revisa mediante `npm run ai`.
 Sigue [docs/ai/revision-claude.md](docs/ai/revision-claude.md).
-Tarea: `hotfix-exams`, base `6009b4bf4dc5dba3e9dbfc010b8d60228fa8c346`,
-rama `hotfix/produccion`. Corregir generación y recuperación de pruebas IA.
+Tarea: `economics-graphs`, base `3ab7dd8b24163bf4a365f6dafadaede3a2570547`,
+rama `hotfix/produccion`. Mejorar guías a los ejes, etiquetas y explicaciones
+interactivas de economía, excedentes y pérdidas; revisar resultados de escala.
 
-Actualizar descriptor y evidencia; ejecutar `npm run ai -- test hotfix-exams`,
-crear commit y ejecutar `npm run ai -- review hotfix-exams`. Leer el JSON local.
+Actualizar descriptor y evidencia; ejecutar `npm run ai -- test economics-graphs`,
+crear commit y ejecutar `npm run ai -- review economics-graphs`. Leer el JSON local.
 Corregir dentro del alcance, probar y repetir con un máximo de tres correcciones
 después de la revisión inicial. Un bloqueo nunca equivale a aprobación.
 Un solo implementador; no modificar archivos ni Git durante la revisión.
