@@ -1,0 +1,35 @@
+{
+  "id": "hotfix-exams",
+  "base_sha": "6009b4bf4dc5dba3e9dbfc010b8d60228fa8c346",
+  "objective": "Fix AI exam generation failures and repeat generation without clearing browser data on the production branch.",
+  "scope": [
+    "Reproduce and repair disabled repeat-generation controls when an unfinished saved exam is opened before the session request resolves.",
+    "Bound browser request lifetimes, bypass API cache, revalidate deployed static assets and preserve the prior exam if generation or local persistence fails.",
+    "Allow at most one additional independent review for deterministically invalid exam content within the existing 210-second total budget. Preserve strict validation, usage accounting and release session locks before returning success.",
+    "Reuse the approved review scripts from feature commit 6e612d3e2a994350d0906149e97db1788b5a416d, changing the required branch and allowing only the exact public api/[...path].mjs context path; production main did not contain the mandatory npm run ai workflow.",
+    "Run synthetic HTTP and real browser regression tests; preserve original study modules and all user data."
+  ],
+  "restrictions": [
+    "No push, merge, deployment, credentials, production API calls or database operations.",
+    "Only this isolated worktree is changed; the running collaborative application and its services are preserved.",
+    "One implementer; no edits or Git operations during Claude review. Initial review plus at most three correction rounds.",
+    "Only public source and synthetic evidence reach Claude; private artifacts stay under .local.",
+    "No retry for quota/authentication/transport errors; incomplete or invalid results never count as success. No removal of persisted student data."
+  ],
+  "previous_findings": [],
+  "files": [
+    "AGENTS.md", "package.json", "vercel.json", "server.mjs", "index.html",
+    "lib/exam.mjs", "lib/tutor.mjs", "lib/errors.mjs", "lib/usage.mjs", "lib/session-token.mjs", "lib/material.mjs", "lib/cases.mjs",
+    "api/[...path].mjs", "scripts/build-vercel.mjs", "js/estudio.js", "js/estudio-prueba.js",
+    "scripts/ai/review-core.mjs", "scripts/ai/review-claude.mjs",
+    "docs/ai/revision-claude.md", "docs/ai/hotfix-exams.md", "docs/ai/tasks/hotfix-exams.json",
+    "tests/exam.test.mjs", "tests/server.test.mjs", "tests/vercel.test.mjs", "tests/usage.test.mjs", "tests/study.test.mjs",
+    "tests/ai-review.test.mjs", "tests/hotfix-ui.test.mjs",
+    "tests/browser-exam.cjs", "tests/browser.cjs", "tests/browser-cuantitativas.cjs", "tests/browser-economia.cjs"
+  ],
+  "tests": [
+    "tests/ai-review.test.mjs", "tests/banco.test.mjs", "tests/cases.test.mjs", "tests/economia.test.mjs",
+    "tests/exam.test.mjs", "tests/formulas.test.mjs", "tests/material.test.mjs", "tests/server.test.mjs",
+    "tests/study.test.mjs", "tests/usage.test.mjs", "tests/vercel.test.mjs", "tests/hotfix-ui.test.mjs"
+  ]
+}

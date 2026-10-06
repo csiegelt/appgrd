@@ -1,6 +1,7 @@
 // Browser workflow with mocked AI: no real credentials or billed generations.
 const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),{spawn}=require('node:child_process');
 (async()=>{
+ fs.mkdirSync(path.resolve(__dirname,'../test-results'),{recursive:true});
  const server=spawn(process.execPath,['server.mjs'],{cwd:path.resolve(__dirname,'..'),env:{...process.env,PORT:'18793',HOST:'127.0.0.1',APP_ORIGIN:'',APP_PASSWORD:'',OPENAI_API_KEY:''},stdio:'pipe'});
  await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('error',reject);server.once('exit',code=>reject(Error('Server exited: '+code)))});
  let browser, page;
@@ -8,12 +9,12 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
   page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewport({width:390,height:844});
-  let requests=0,fail=false,hold=false,release,waiting,expectedTopics=11,lastSize=0;
+  let requests=0,fail=false,hold=false,release,waiting,expectedTopics=11,lastSize=0,sessionDelay=0;
   await page.setRequestInterception(true);
   page.on('request',async req=>{
    const url=new URL(req.url());if(!url.pathname.startsWith('/api/'))return req.continue();
    let body={};
-   if(url.pathname==='/api/session')body={available:true,provider:'openai-api',configured:true,connected:true,authRequired:false,protected:false,models:[{slug:'test-model',display_name:'Test'}]};
+   if(url.pathname==='/api/session'){if(sessionDelay)await new Promise(done=>setTimeout(done,sessionDelay));body={available:true,provider:'openai-api',configured:true,connected:true,authRequired:false,protected:false,models:[{slug:'test-model',display_name:'Test'}]};}
    if(url.pathname==='/api/usage')return req.respond({status:404,contentType:'application/json',body:JSON.stringify({error:'El contador de consumo no se muestra en esta publicación.',code:'USAGE_HIDDEN'})});
    if(url.pathname==='/api/tutor'){
     requests++;const data=JSON.parse(req.postData());assert.equal(data.generateExam,true);assert.equal(data.generate,undefined);assert.equal(data.web,undefined);assert.equal(data.context.name,'Economía de la Salud');assert.equal(data.context.lessons.length,expectedTopics);assert.ok([10,15].includes(data.examSize));lastSize=data.examSize;
@@ -52,7 +53,9 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   assert.equal(await page.$eval('.study-exam-new',e=>e.open),false,'The replace option starts folded');
   await tap('[data-action="exam-answer"][data-index="1"]');await tap('[data-action="exam-answer"][data-index="0"]');
   assert.equal((await attempt()).answers[0],0);
-  await page.reload();await enter();assert.equal(await page.$eval('[data-action="exam-answer"][data-index="0"]',e=>e.getAttribute('aria-pressed')),'true');
+  sessionDelay=500;await page.reload();await enter();
+  await page.waitForFunction(()=>document.querySelector('[data-action="generate-exam"]')?.disabled===false,{timeout:5000});
+  sessionDelay=0;assert.equal(await page.$eval('[data-action="exam-answer"][data-index="0"]',e=>e.getAttribute('aria-pressed')),'true');
   await click('exam-clear');assert.equal((await attempt()).answers[0],null);
   const activeQuestions=(await attempt()).questions;
   for(let i=0;i<12;i++){
@@ -84,6 +87,27 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   const previous=await attempt();fail=true;await click('generate-exam');
   await page.waitForFunction(()=>document.querySelector('.study-notice')?.textContent.includes('prueba completa')&&!document.querySelector('[data-action="generate-exam"]').disabled);
   assert.deepEqual(await attempt(),previous);assert.equal((await history()).length,1);
+  fail=false;
+  // Exercise real UI recovery using shortened timers only in this synthetic test.
+  await page.evaluate(()=>{
+   const nativeFetch=window.fetch.bind(window),nativeTimeout=window.setTimeout.bind(window),nativeSet=Storage.prototype.setItem;
+   window.setTimeout=(fn,ms,...args)=>nativeTimeout(fn,window.hangPath&&[15000,225000].includes(ms)?100:ms,...args);
+   window.fetch=(url,options)=>String(url)==='/api/'+window.hangPath?new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(new DOMException('Test timeout','AbortError')),{once:true})):nativeFetch(url,options);
+   Storage.prototype.setItem=function(key,value){if(window.failExamSave&&key==='grd-estudio-v1')throw new DOMException('Test full storage','QuotaExceededError');return nativeSet.call(this,key,value)};
+  });
+  await page.evaluate(()=>window.hangPath='tutor');await click('generate-exam');
+  await page.waitForFunction(()=>document.querySelector('.study-notice')?.textContent.includes('tardó demasiado')&&!document.querySelector('[data-action="generate-exam"]').disabled);
+  assert.deepEqual(await attempt(),previous,'A timed-out exam preserves the saved result');
+  await page.evaluate(()=>window.hangPath='session');await click('generate-exam');
+  await page.waitForFunction(()=>document.querySelector('[data-action="refresh-ai"]')?.disabled===false);
+  assert.deepEqual(await attempt(),previous);
+  await page.evaluate(()=>{window.hangPath='';window.failExamSave=true});await click('refresh-ai');
+  await page.waitForFunction(()=>document.querySelector('[data-action="generate-exam"]')?.disabled===false);
+  await click('generate-exam');
+  await page.waitForFunction(()=>document.querySelector('.study-notice')?.textContent.includes('No se pudo guardar la nueva prueba')&&!document.querySelector('[data-action="generate-exam"]').disabled);
+  assert.deepEqual(await attempt(),previous,'Storage failure preserves the previous saved exam');
+  assert.equal(await page.$eval('#study-exam-result .study-result-score',e=>e.textContent),'4,0','Storage failure also restores the previous exam in memory');
+  await page.evaluate(()=>window.failExamSave=false);
   // From the result: another exam of 10.
   fail=false;await tap('[data-action="set-exam-size"][data-size="10"]');await click('generate-exam');
   await page.waitForFunction(()=>document.querySelectorAll('[data-action="exam-jump"]').length===10);

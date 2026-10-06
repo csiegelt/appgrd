@@ -142,33 +142,48 @@ export async function createApp({ env = process.env, fetchImpl = fetch, usageFil
           s.busy = true; active++; calls.count++;
           let accepted = false, recorded = false;
           const deadline = Date.now() + 210000;
+          let result;
           try {
             const response = await openAI('/responses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, !!payload.tools);
             accepted = true;
-            let result = await collectResponse(response.body, usage => { recorded = true; meter.record(usage); });
+            result = await collectResponse(response.body, usage => { recorded = true; meter.record(usage); });
             if (data.generateExam) {
-              const firstUsage = result.usage;
-              const review = examReviewPayload(payload, result.text, examSize(data.examSize), data.context.lessons.length);
-              accepted = false; recorded = false;
-              const checked = await openAI('/responses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(review) }, false, Math.max(1, Math.min(180000, deadline - Date.now())));
-              accepted = true;
-              result = await collectResponse(checked.body, usage => { recorded = true; meter.record(usage); });
-              result.usage = firstUsage && result.usage ? Object.fromEntries([...new Set([...Object.keys(firstUsage), ...Object.keys(result.usage)])].map(key => [key, (firstUsage[key] || 0) + (result.usage[key] || 0)])) : null;
+              let totalUsage = result.usage;
+              const size = examSize(data.examSize);
+              const review = examReviewPayload(payload, result.text, size, data.context.lessons.length);
+              // One bounded correction, only for invalid exam content. Never retry quota,
+              // authentication or transport errors, and never publish an unreviewed draft.
+              for (let attempt = 0; attempt < 2; attempt++) {
+                const remaining = deadline - Date.now();
+                if (remaining <= 0) throw new DOMException('Exam deadline exceeded', 'TimeoutError');
+                accepted = false; recorded = false;
+                const checked = await openAI('/responses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(review) }, false, Math.min(180000, remaining));
+                accepted = true;
+                result = await collectResponse(checked.body, usage => { recorded = true; meter.record(usage); });
+                totalUsage = totalUsage && result.usage ? Object.fromEntries([...new Set([...Object.keys(totalUsage), ...Object.keys(result.usage)])].map(key => [key, (totalUsage[key] || 0) + (result.usage[key] || 0)])) : null;
+                result.usage = totalUsage;
+                try { result.exam = validateGeneratedExam(result.text, data.context.lessons, size); break; }
+                catch (err) {
+                  if (err.code !== 'EXAM_INVALID' || attempt > 0 || deadline - Date.now() < 10000) throw err;
+                  review.input.push({ role: 'user', content: 'La versión revisada no pasó la validación: ' + err.message + ' Revisa de nuevo los enunciados originales y entrega la prueba completa corregida, respetando el plan y el esquema.' });
+                }
+              }
+              delete result.text;
             }
             meter.available();
             if (data.generate) result.text = validateGeneratedQuestions(result.text, data.context.lessons);
             if (data.generateCase) { result.case = validateGeneratedCase(result.text, data.context.lessons, data.avoidCases || []); delete result.text; }
             if (data.generateMaterial) { result.material = validateGeneratedMaterial(result.text, data.context.lessons); delete result.text; }
-            if (data.generateExam) { result.exam = validateGeneratedExam(result.text, data.context.lessons, examSize(data.examSize)); delete result.text; }
             await meter.flush();
-            json(res, 200, result);
           } catch (err) {
             if (QUOTA_CODES.has(err.code)) meter.exhausted(err);
             throw err;
           } finally {
             if (accepted && !recorded) meter.record(null);
-            await meter.flush(); s.busy = false; active--;
+            s.busy = false; active--;
+            await meter.flush();
           }
+          json(res, 200, result);
           return;
         }
         json(res, 404, { error: 'Ruta no disponible.' }); return;

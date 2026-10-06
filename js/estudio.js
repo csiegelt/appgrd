@@ -406,9 +406,11 @@ const Estudio = (() => {
       const data = await request('tutor', { model, generateExam: true, examSize: size, context: { name: captured.name, source: captured.source, lessons: captured.lessons.map(l => ({ title: l.title, text: l.text })) }, messages: [{ role: 'user', content: `Prepara una prueba de ${size} preguntas variadas con conceptos, casos de salud y ejercicios. ` + (previous ? 'Evita repetir estos enunciados de la prueba anterior: ' + JSON.stringify(previous.questions.map(q => q.prompt)).slice(0, 18000) : '') }] });
       const attempt = PruebaEstudio.create(data.exam?.questions, examThreshold, Math.random, size);
       if (attempt.questions.some(q => !captured.lessons.some(l => l.title === q.sourceTitle))) throw Error('La prueba contiene temas ajenos al material. Vuelve a generarla.');
-      st.exams[captured.id] = attempt; examConfirm = false; examNewOpen = false; save();
+      st.exams[captured.id] = attempt;
+      if (!save()) { st.exams[captured.id] = previous; throw Error('No se pudo guardar la nueva prueba. La anterior se conserva; descarga un respaldo y libera espacio antes de reintentar.'); }
+      examConfirm = false; examNewOpen = false;
     } catch (err) { status = err.message; if (err.status === 402) apiUsage = { ...apiUsage, quota: { state: 'exhausted', code: err.code, message: err.message } }; }
-    finally { busy = false; creatingExam = false; await refreshUsage(true); render(); }
+    finally { await refreshUsage(true); busy = false; creatingExam = false; render(); }
   }
   const caseID = (c, i) => c.id || `case-${i}`;
   const caseNoteKey = (c, i, step) => progressKey(`case-${c.id || i}-${step}`);
@@ -542,9 +544,16 @@ const Estudio = (() => {
     return result;
   }
   async function request(path, body) {
-    const response = await fetch('/api/' + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
-    if (!response.ok) { let data; try { data = await response.json(); } catch {} const err = Error(data?.error || 'No se pudo conectar con el servicio de IA.'); err.status = response.status; err.code = data?.code; throw err; }
-    return response.json();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), path === 'tutor' ? 225000 : 15000);
+    try {
+      const response = await fetch('/api/' + path, { cache: 'no-store', signal: controller.signal, ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}) });
+      if (!response.ok) { let data; try { data = await response.json(); } catch {} const err = Error(data?.error || (response.status === 504 ? 'La IA tardó demasiado. Puedes volver a intentar; tu prueba anterior se conserva.' : 'No se pudo conectar con el servicio de IA.')); err.status = response.status; err.code = data?.code; throw err; }
+      return await response.json();
+    } catch (err) {
+      if (controller.signal.aborted) throw Error('El servicio tardó demasiado. Puedes volver a intentar; tu contenido guardado se conserva.');
+      throw err;
+    } finally { clearTimeout(timer); }
   }
   async function checkAI() {
     try {
@@ -618,7 +627,7 @@ const Estudio = (() => {
     else if (a === 'grd' && subject().id === 'sistemas-salud') { setTab('dashboard'); return; }
     else if (a === 'resources' && (subject().id === 'herramientas-cuantitativas' || isEconomics())) { if (isEconomics() && b.dataset.lab) EconomiaLab.open(b.dataset.lab); view = 'resources'; status = ''; }
     else if (a === 'home') { view = 'home'; editor = null; scope = null; status = ''; }
-    else if (a === 'exam' && isEconomics()) { view = 'exam'; editor = null; status = ''; examConfirm = false; render(); const before = JSON.stringify(ai); checkAI().then(() => { if (view === 'exam' && (!examAttempt() || examAttempt().finishedAt) && before !== JSON.stringify(ai)) render(); }); return; }
+    else if (a === 'exam' && isEconomics()) { view = 'exam'; editor = null; status = ''; examConfirm = false; render(); checkAI().then(() => { if (view === 'exam' && !busy) render(); }); return; }
     else if (a === 'generate-exam') { generateExam(); return; }
     // The click precedes the native toggle, so the next state is the opposite of the current one.
     else if (a === 'new-exam-toggle') { examNewOpen = !b.closest('details').open; return; }

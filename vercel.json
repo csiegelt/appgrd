@@ -3,6 +3,12 @@
   "framework": null,
   "buildCommand": "node scripts/build-vercel.mjs",
   "outputDirectory": ".vercel-static",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }]
+    }
+  ],
   "functions": {
     "api/*.mjs": {
       "maxDuration": 240

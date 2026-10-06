@@ -144,4 +144,5 @@ test('Vercel build publishes teaching resources but excludes server sources, dat
   const html=await readFile(new URL('../.vercel-static/index.html',import.meta.url),'utf8');assert.match(html,/economia-lab.js/);
   const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));assert.equal(config.framework,null);assert.equal(config.functions['api/*.mjs'].maxDuration,240);
   assert.equal(config.outputDirectory,'.vercel-static');
+  assert.deepEqual(config.headers, [{source:'/(.*)',headers:[{key:'Cache-Control',value:'no-cache, max-age=0, must-revalidate'}]}]);
 });

@@ -132,7 +132,56 @@ test('exam HTTP generation retains authentication, records usage even on invalid
   assert.equal((await call('login',{password:'exam-test'})).status,200);
   const good=await call('tutor',input);assert.equal(good.status,200);assert.deepEqual(good.data.exam.questions,questions());assert.equal(good.data.text,undefined);assert.equal(good.data.usage.totalTokens,600);assert.equal(calls,2);
   invalid=true;const bad=await call('tutor',input);assert.equal(bad.status,502);assert.equal(bad.data.exam,undefined);
-  assert.equal((await call('usage')).data.totalTokens,1200);assert.equal(calls,4);
+  assert.equal((await call('usage')).data.totalTokens,1500);assert.equal(calls,5);
+  invalid=false;assert.equal((await call('tutor',input)).status,200,'The same session can retry without clearing cookies');
+});
+
+test('an invalid review is corrected once, counted and followed by another exam in the same session', async t => {
+  let calls = 0;
+  const server = await startServer(0, { env: { OPENAI_API_KEY: 'test-key' }, usageFile: null, fetchImpl: async (_, options) => {
+    calls++; const payload = JSON.parse(options.body), items = rawQuestions();
+    if (calls === 2) items.pop();
+    if (calls === 3) {
+      assert.match(payload.input.at(-1).content, /no pasó la validación/);
+      assert.match(payload.instructions, /NO supongas que la clave/);
+      assert.ok(!payload.input[1].content.includes('"answer"'));
+    }
+    return new Response('data: ' + JSON.stringify({ type: 'response.completed', response: { status: 'completed', usage: { input_tokens: 100, output_tokens: 200, total_tokens: 300 }, output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ questions: items }) }] }] } }) + '\n\n');
+  } });
+  t.after(() => new Promise(done => { server.close(done); server.closeAllConnections(); }));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const session = await fetch(origin + '/api/session'), cookie = session.headers.get('set-cookie').split(';')[0];
+  const generate = () => fetch(origin + '/api/tutor', { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+  const repaired = await generate(), result = await repaired.json();
+  assert.equal(repaired.status, 200); assert.equal(result.exam.questions.length, 15); assert.equal(result.usage.totalTokens, 900); assert.equal(calls, 3);
+  assert.equal((await generate()).status, 200); assert.equal(calls, 5);
+});
+
+test('provider failures and insufficient remaining time do not trigger correction or leave the session busy', async t => {
+  for (const mode of ['quota', 'rate', 'timeout', 'incomplete', 'deadline']) await t.test(mode, async t => {
+    let calls = 0, failed = false, clock = Date.now();
+    if (mode === 'deadline') t.mock.method(Date, 'now', () => clock);
+    const server = await startServer(0, { env: { OPENAI_API_KEY: 'test-key' }, usageFile: null, fetchImpl: async () => {
+      calls++;
+      if (calls === 2 && !failed) {
+        failed = true;
+        if (mode === 'quota' || mode === 'rate') return Response.json({ error: { code: mode === 'quota' ? 'insufficient_quota' : 'rate_limit_exceeded' } }, { status: 429 });
+        if (mode === 'timeout') throw new DOMException('Timeout', 'TimeoutError');
+        if (mode === 'incomplete') return new Response('data: ' + JSON.stringify({ type: 'response.incomplete', response: { status: 'incomplete' } }) + '\n\n');
+        clock += 201000;
+      }
+      const items = rawQuestions(); if (mode === 'deadline' && calls === 2) items.pop();
+      return new Response('data: ' + JSON.stringify({ type: 'response.completed', response: { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ questions: items }) }] }] } }) + '\n\n');
+    } });
+    t.after(() => new Promise(done => { server.close(done); server.closeAllConnections(); }));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const session = await fetch(origin + '/api/session'), cookie = session.headers.get('set-cookie').split(';')[0];
+    const generate = () => fetch(origin + '/api/tutor', { method: 'POST', headers: { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+    const response = await generate(), data = await response.json();
+    assert.equal(response.status, { quota: 402, rate: 429, timeout: 504, incomplete: 502, deadline: 502 }[mode]);
+    assert.equal(data.exam, undefined); assert.equal(calls, 2);
+    assert.equal((await generate()).status, 200); assert.equal(calls, 4);
+  });
 });
 
 test('exam HTTP generation honors the requested size in the draft, review and validation', async t => {
