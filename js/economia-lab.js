@@ -9,7 +9,7 @@ const EconomiaLab = (() => {
     tab: 'market', formulas: true, hide: false, answers: { market: [], elasticity: [], scale: [], productivity: [], monopoly: [], insurance: [], grossman: [] },
     market: { mode: 'equilibrium', name: 'Equilibrio del documento', price: 900, demandShift: 0, supplyShift: 0, baseline: true,
       rows: [[0,1800,300],[1,1500,500],[2,1200,700],[3,900,900],[4,700,1200],[5,500,1500],[6,300,1800],[7.5,0,2250]] },
-    elasticity: { p1: 20000, p2: 25000, q1: 100, q2: 90 },
+    elasticity: { view: 'demand', p1: 4, p2: 5, q1: 100, q2: 90, supply: { p1: 4, p2: 5, q1: 100, q2: 110 }, compare: { a: { p1: 4, p2: 5, q1: 100, q2: 90 }, b: { p1: 4, p2: 5, q1: 100, q2: 70 } }, linear: { intercept: 7, quantity: 14, segments: 7, segment: 3 }, shift: { example: 'wheat', p0: 3, q0: 100, change: 20, ed: .3, es: .3, longEd: 1, longEs: 1 }, other: { mode: 'income', p1: 1000, p2: 1200, q1: 100, q2: 120 } },
     scale: { mode: 'short', fixed: 1000000, variable: 5000, congestion: 0, c0: 1500000, q0: 100, alpha: 0.8, qa: 100, qb: 200 },
     productivity: { rows: [['APS y vacunación',95],['Urgencias y diagnóstico',80],['Controles y seguimiento',45],['Exámenes redundantes',-5]] },
     monopoly: { a: 1500, b: 200, c: 300, d: 200 },
@@ -27,7 +27,7 @@ const EconomiaLab = (() => {
   // [id, pestaña, tema del ramo, qué se practica]
   const tabs = [
     ['market','Oferta y demanda','econ-mercado','Mueve el precio para ver excesos de oferta o demanda, o desplaza las curvas.'],
-    ['elasticity','Elasticidad','econ-elasticidad','Compara dos observaciones y calcula la elasticidad arco y el ingreso total.'],
+    ['elasticity','Elasticidad','econ-elasticidad','Explora oferta, demanda e ingresos con curvas, áreas y ejemplos editables.'],
     ['scale','Economías de escala','econ-escala','Compara el costo por examen de dos volúmenes, a corto y a largo plazo.'],
     ['productivity','Productividad','econ-productividad','Edita los aportes marginales del gráfico del apunte.'],
     ['monopoly','Monopolio','econ-monopolio','Compara competencia y monopolio con la misma demanda y los mismos costos.'],
@@ -75,8 +75,8 @@ const EconomiaLab = (() => {
     'Con inversión constante': 'La inversión repone parte del capital de salud que se deprecia en cada período.',
     'Sin inversión': 'El capital de salud disminuye por depreciación, sin reposición.'
   }[name] || 'Compara esta curva con los puntos señalados y sus coordenadas.');
-  function chart(series, { title, xLabel = 'Cantidad (Q)', yLabel = 'Precio ($)', markers = [], lines = [], areas = [], xMax, yMax, yMin = 0 } = {}) {
-    const W = globalThis.innerWidth < 600 ? 360 : 620, H = 365, L = 70, R = 20, T = 34, B = 55;
+  function chart(series, { title, xLabel = 'Cantidad (Q)', yLabel = 'Precio ($)', markers = [], lines = [], areas = [], id = 'econ-chart', compact = false, xMax, yMax, yMin = 0 } = {}) {
+    const W = compact || globalThis.innerWidth < 600 ? 360 : 620, H = 365, L = 70, R = 20, T = 34, B = 55;
     const all = [...series.flatMap(v => v.points), ...markers.map(v => [v.q,v.p])].filter(p => p.every(Number.isFinite));
     xMax ||= Math.max(1,...all.map(p=>p[0])) * 1.07;
     yMax ||= Math.max(1,...all.map(p=>p[1]), ...lines.map(l=>l.y)) * 1.13;
@@ -86,24 +86,36 @@ const EconomiaLab = (() => {
     const path = points => points.filter(p=>p.every(Number.isFinite)).map(([q,p],i) => `${i ? 'L' : 'M'}${x(q).toFixed(2)},${y(p).toFixed(2)}`).join(' ');
     const visible = markers.filter(v=>Number.isFinite(v.q)&&Number.isFinite(v.p)&&v.q>=0&&v.q<=xMax&&v.p>=yMin&&v.p<=yMax);
     const pointInfo = v => `${v.label}. ${s.hide ? 'Coordenadas ocultas para practicar.' : `${xLabel}: ${f(v.q)}; ${yLabel}: ${f(v.p)}.`} ${v.help || 'Las líneas punteadas llevan este punto a sus valores en ambos ejes.'}${v.drag ? ' Arrastra el punto o cambia el control de precio.' : ''}`;
-    const explain = (id, text) => `data-e-ref="${id}" data-e-explain="${h(text)}" aria-describedby="econ-chart-reading"`;
+    const explain = (ref, text) => `data-e-ref="${ref}" data-e-explain="${h(text)}" aria-describedby="${id}-reading"`;
     // Closely spaced projections share the axis space; exact values remain in the point keys.
     const labels = (axis, minGap) => visible.map(v=>axis==='x'?v.q:v.p).sort((a,b)=>a-b).filter((v,i,a)=>i===0||Math.abs((axis==='x'?x:y)(v)-(axis==='x'?x:y)(a[i-1]))>=minGap);
     const qLabels = s.hide ? [] : labels('x',38), pLabels = s.hide ? [] : labels('y',18);
-    return `<figure class="econ-figure econ-interactive"><figcaption>${h(title)}</figcaption><svg id="econ-chart" viewBox="0 0 ${W} ${H}" role="group" aria-label="${h(title)}. Eje horizontal: ${h(xLabel)}. Eje vertical: ${h(yLabel)}."><title>${h(title)}</title><defs><clipPath id="econ-clip"><rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}"/></clipPath><pattern id="econ-loss-hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M-1,1L1,-1M0,7L7,0M6,8L8,6" stroke="#a12c39" stroke-width="1"/></pattern></defs>
+    // Place point labels inside the plot, avoiding other points and labels. Keys below
+    // the chart retain names when a very dense plot has no free label position.
+    const occupied=[],pointLabels=visible.map((v,i)=>{
+      const same=visible.findIndex(u=>Math.abs(x(u.q)-x(v.q))<1&&Math.abs(y(u.p)-y(v.p))<1);
+      if(same!==i)return '';
+      const label=visible.filter(u=>Math.abs(x(u.q)-x(v.q))<1&&Math.abs(y(u.p)-y(v.p))<1).map(u=>u.label).filter(Boolean).join(' / ');
+      const width=label.length*7+4,height=16,cx=x(v.q),cy=y(v.p);
+      const candidates=[[cx+10,cy-22],[cx-width-10,cy-22],[cx+10,cy+10],[cx-width-10,cy+10],[cx-width/2,cy-34]];
+      const pos=candidates.find(([left,top])=>left>=L+2&&left+width<=W-R-2&&top>=T&&top+height<=H-B-2&&!occupied.some(b=>left<b[0]+b[2]&&left+width>b[0]&&top<b[1]+b[3]&&top+height>b[1])&&!visible.some(u=>x(u.q)+7>left&&x(u.q)-7<left+width&&y(u.p)+7>top&&y(u.p)-7<top+height));
+      if(!pos)return '';occupied.push([...pos,width,height]);
+      return `<text x="${pos[0]}" y="${pos[1]+12}" class="econ-point-label" pointer-events="none">${h(label)}</text>`;
+    });
+    return `<figure class="econ-figure econ-interactive"><figcaption>${h(title)}</figcaption><svg id="${id}" viewBox="0 0 ${W} ${H}" role="group" aria-label="${h(title)}. Eje horizontal: ${h(xLabel)}. Eje vertical: ${h(yLabel)}."><title>${h(title)}</title><defs><clipPath id="${id}-clip"><rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}"/></clipPath><pattern id="${id}-loss-hatch" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M-1,1L1,-1M0,7L7,0M6,8L8,6" stroke="#a12c39" stroke-width="1"/></pattern></defs>
       ${Array.from({length:5},(_,i)=>{const q=xMax*i/4,p=yMin+(yMax-yMin)*i/4;return `<line class="econ-grid" x1="${L}" x2="${W-R}" y1="${y(p)}" y2="${y(p)}"/>${pLabels.some(v=>Math.abs(y(v)-y(p))<18)?'':`<text x="${L-7}" y="${y(p)+4}" text-anchor="end">${tick(p)}</text>`}${qLabels.some(v=>Math.abs(x(v)-x(q))<38)?'':`<text x="${x(q)}" y="${H-B+21}" text-anchor="middle">${tick(q)}</text>`}`}).join('')}
       <path class="econ-axis" d="M${L},${T}V${H-B}H${W-R}"/><text x="${L}" y="17" class="econ-axis-title">${yLabel}</text><text x="${W-R}" y="${H-7}" text-anchor="end" class="econ-axis-title">${xLabel}</text>
-      <g clip-path="url(#econ-clip)">${areas.map((a,i)=>`<path class="econ-area" ${explain('area-'+i,`${a.name}. ${s.hide?'':money(a.value)+'. '}${a.help}`)} tabindex="0" aria-label="${h(a.name)}" d="${path(a.points)}Z" fill="${a.color}" fill-opacity=".23" stroke="${a.color}" stroke-width="1.5"/>${a.hatch?`<path d="${path(a.points)}Z" fill="url(#econ-loss-hatch)" pointer-events="none"/>`:''}`).join('')}
+      <g clip-path="url(#${id}-clip)">${areas.map((a,i)=>`<path class="econ-area" ${explain('area-'+i,`${a.name}. ${s.hide?'':money(a.value)+'. '}${a.help}`)} tabindex="0" aria-label="${h(a.name)}" d="${path(a.points)}Z" fill="${a.color}" fill-opacity=".23" stroke="${a.color}" stroke-width="1.5"/>${a.hatch?`<path d="${path(a.points)}Z" fill="url(#${id}-loss-hatch)" pointer-events="none"/>`:''}`).join('')}
       ${lines.map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v.y)}" y2="${y(v.y)}" stroke="${v.color||'#65716f'}" stroke-dasharray="4 4" pointer-events="none"/>`).join('')}
       ${visible.map((v,i)=>`<path class="econ-projection" data-e-ref="point-${i}" d="M${L},${y(v.p)}H${x(v.q)}V${H-B}" fill="none" stroke="${v.color||'#157568'}" stroke-width="1.5" stroke-dasharray="3 4" pointer-events="none"/>`).join('')}
       ${series.map((v,i)=>`<path class="econ-curve" ${explain('curve-'+i,v.name+'. '+(v.help||curveHelp(v.name)))} tabindex="0" aria-label="${h(v.name)}" d="${path(v.points)}" fill="none" stroke="${v.color}" stroke-width="${v.dash ? 2 : 3}" ${v.dash ? 'stroke-dasharray="6 5"' : ''}/>`).join('')}
       ${areas.map((a,i)=>{const cx=a.points.reduce((n,p)=>n+p[0],0)/a.points.length,cy=a.points.reduce((n,p)=>n+p[1],0)/a.points.length;return `<text class="econ-area-number" x="${x(cx)}" y="${y(cy)+4}" text-anchor="middle" pointer-events="none">${i+1}</text>`}).join('')}</g>
       ${qLabels.map(v=>`<text class="econ-projection-value" x="${x(v)}" y="${H-B+21}" text-anchor="middle">${tick(v)}</text>`).join('')}${pLabels.map(v=>`<text class="econ-projection-value" x="${L-7}" y="${y(v)+4}" text-anchor="end">${tick(v)}</text>`).join('')}
-      ${visible.map((v,i)=>`<g><circle ${explain('point-'+i,pointInfo(v))} cx="${x(v.q)}" cy="${y(v.p)}" r="${v.drag ? 8 : 5}" fill="${v.color||'#157568'}" stroke="white" stroke-width="2" tabindex="0" ${v.drag ? 'data-e-drag="price" class="econ-drag"' : ''} aria-label="${h(pointInfo(v))}"/>${v.label ? `<text x="${x(v.q)+(v.q>xMax/2?-9:9)}" text-anchor="${v.q>xMax/2?'end':'start'}" y="${Math.max(T+12,y(v.p)-9)}" class="econ-point-label" pointer-events="none">${h(v.label)}</text>` : ''}</g>`).join('')}
-      </svg><div class="econ-legend">${series.map((v,i)=>`<button type="button" ${explain('curve-'+i,v.name+'. '+(v.help||curveHelp(v.name)))}><i style="border-color:${v.color};border-top-style:${v.dash?'dashed':'solid'}"></i>${h(v.name)}</button>`).join('')}<span class="econ-guide-key"><i></i>Guías a los ejes</span></div>
+      ${visible.map((v,i)=>`<g><circle ${explain('point-'+i,pointInfo(v))} cx="${x(v.q)}" cy="${y(v.p)}" r="${v.drag ? 8 : 5}" fill="${v.color||'#157568'}" stroke="white" stroke-width="2" tabindex="0" ${v.drag ? 'data-e-drag="price" class="econ-drag"' : ''} aria-label="${h(pointInfo(v))}"/>${pointLabels[i]}</g>`).join('')}
+      </svg><p id="${id}-reading" class="econ-chart-reading" role="status">Pasa el mouse, enfoca con Tab o toca un punto, una curva o su etiqueta para ver la explicación. Las guías punteadas conectan cada punto con ambos ejes.</p><div class="econ-legend">${series.map((v,i)=>`<button type="button" ${explain('curve-'+i,v.name+'. '+(v.help||curveHelp(v.name)))}><i style="border-color:${v.color};border-top-style:${v.dash?'dashed':'solid'}"></i>${h(v.name)}</button>`).join('')}<span class="econ-guide-key"><i></i>Guías a los ejes</span></div>
       <div class="econ-point-keys">${visible.map((v,i)=>`<button type="button" ${explain('point-'+i,pointInfo(v))}><strong>${h(v.label)}</strong>${s.hide?'Coordenadas ocultas':`${h(xLabel)}: ${f(v.q)} · ${h(yLabel)}: ${f(v.p)}`}</button>`).join('')}</div>
       ${areas.length?`<div class="econ-area-keys">${areas.map((a,i)=>`<button type="button" class="econ-area-key" style="--area-color:${a.color}" ${explain('area-'+i,`${a.name}. ${s.hide?'':money(a.value)+'. '}${a.help}`)}><span>${i+1} · ${h(a.name)}</span><strong>${s.hide?'?':money(a.value)}</strong><small>${h(a.help)}</small></button>`).join('')}</div>`:''}
-      <p id="econ-chart-reading" class="econ-chart-reading" role="status">Pasa el mouse, enfoca con Tab o toca un punto, una curva o su etiqueta para ver la explicación. Las guías punteadas conectan cada punto con ambos ejes.</p></figure>`;
+      </figure>`;
   }
   function exercise(labels, values, steps, question) {
     expected = values; solution = steps;
@@ -115,7 +127,7 @@ const EconomiaLab = (() => {
       ${range('market.price','Precio observado ($)',0,Math.max(2500,...s.market.rows.flatMap(r=>r.slice(1)).filter(Number.isFinite))*1.5,1)}
       ${s.market.mode === 'shifts' ? `${range('market.demandShift','Cambio en demanda ($ por Q)',-Math.max(500,s.market.rows[0][1]),Math.max(500,s.market.rows[0][1]),1)}${range('market.supplyShift','Cambio en costos de oferta ($ por Q)',-Math.max(500,s.market.rows[0][1]),Math.max(500,s.market.rows[0][1]),1)}${check('market.baseline','Comparar con curvas iniciales')}` : ''}
       ${hint('Edita las celdas o mueve el precio. Azul: demanda; naranja: oferta. También puedes arrastrar el punto «P observado» del gráfico.')}`;
-    if (s.tab === 'elasticity') return `<h4>1. Compara dos observaciones</h4><div class="econ-presets">${button('preset','Poca sensibilidad','data-preset="inelastic"')}${button('preset','Más sustitutos','data-preset="elastic"')}${button('preset','Elasticidad unitaria','data-preset="unit"')}</div>${sheet([['Precio inicial ($)','elasticity.p1',1],['Precio final ($)','elasticity.p2',1],['Cantidad inicial','elasticity.q1',1],['Cantidad final','elasticity.q2',1]],'Consultas por mes · ejemplo simulado')}${hint('Mantén iguales las unidades y el período. Estos dos puntos sirven para calcular elasticidad arco, suponiendo constantes los otros determinantes.')}`;
+    if (s.tab === 'elasticity') return EconomiaElasticidad.controls({s, select, sheet, range, button, hint});
     if (s.tab === 'scale') return `<h4>1. Define el horizonte</h4>${select('scale.mode','Modelo de costos',[['short','Corto plazo · capacidad fija'],['long','Largo plazo · todos los insumos ajustables']])}${s.scale.mode==='short' ? sheet([['Costo fijo F ($/mes)','scale.fixed'],['Costo variable v ($/examen)','scale.variable'],['Congestión k ($/examen²)','scale.congestion']],'Laboratorio clínico · datos simulados') : `${sheet([['Costo total de referencia C₀ ($)','scale.c0',1],['Cantidad de referencia Q₀','scale.q0',1]],'Escala de referencia')} ${range('scale.alpha','Exponente de costos α',0.2,2,0.05)}<div class="econ-presets">${button('preset','Economías α=0,8','data-preset="scale-economies"')}${button('preset','Constante α=1','data-preset="scale-constant"')}${button('preset','Deseconomías α=1,2','data-preset="scale-diseconomies"')}</div>`}<h4>2. Compara volúmenes</h4>${sheet([['Exámenes al mes · A','scale.qa',1],['Exámenes al mes · B','scale.qb',1]],'Misma calidad y complejidad')}${hint('Cambia Q en A y B. El gráfico compara costos por examen; el gasto total también aparece en los resultados. Usa «Ocultar resultados» para resolver sin mirar.')}`;
     if (s.tab === 'productivity') return `<h4>Edita el gráfico del documento</h4><div class="econ-sheet-scroll"><table class="econ-sheet econ-productivity-table"><caption>Aportes marginales ilustrativos · no eficacia clínica</caption><thead><tr><th>Intervención</th><th>Índice</th><th><span class="econ-sr">Quitar</span></th></tr></thead><tbody>${s.productivity.rows.map((r,i)=>`<tr><td>${input(`productivity.rows.${i}.0`,'Nombre de intervención '+(i+1),0,1e9,'any',true)}</td><td>${input(`productivity.rows.${i}.1`,'Índice de intervención '+(i+1),-1000,1000)}</td><td>${button('remove-row','×',`data-row="${i}" aria-label="Quitar intervención ${i+1}" ${s.productivity.rows.length<=2?'disabled':''}`)}</td></tr>`).join('')}</tbody></table></div>${button('add-row','+ Intervención',s.productivity.rows.length>=12?'disabled':'')}${hint('El documento muestra 95, 80, 45 y −5 sin una base de estimación. Aquí son un índice de práctica, no porcentajes de beneficio clínico.')}`;
     if (s.tab === 'monopoly') return `<h4>Cambia demanda y costos</h4>${sheet([['Demanda: intercepto a ($)','monopoly.a',1],['Demanda: pendiente b ($/Q)','monopoly.b',0.01],['CMg: intercepto c ($)','monopoly.c'],['CMg: pendiente d ($/Q)','monopoly.d']],'P = a − bQ · CMg = c + dQ')}${hint('Azul: demanda; violeta: ingreso marginal; naranja: costo marginal. M es monopolio, C es competencia. Se mantiene la misma tecnología en ambas situaciones.')}`;
@@ -150,11 +162,7 @@ const EconomiaLab = (() => {
     if(!model.clipped)out+=exercise(['Cantidad demandada','Cantidad ofrecida'],[qd,qs],`Ubica P=${money(s.market.price)} en el eje vertical. Interseca cada curva y lee Q en el horizontal: Qd=${f(qd)}, Qs=${f(qs)}. Resta Qd−Qs=${f(gap)}. Un resultado positivo indica exceso de demanda.`, `Con el precio observado de ${money(s.market.price)}, calcula ambas cantidades usando la tabla.`);
     return out;
   }
-  function elasticityOutput() {
-    const v=s.elasticity,r=M.elasticity(v);
-    const series=[{name:'Dos observaciones (segmento)',color:'#315eb3',points:[[v.q1,v.p1],[v.q2,v.p2]]}];
-    return chart(series,{title:'Elasticidad arco · consultas simuladas',markers:[{q:v.q1,p:v.p1,label:'A'},{q:v.q2,p:v.p2,label:'B',color:'#b45923'}]})+stats([['Elasticidad con signo',f(r.e,3)],['Según |E|',r.kind],['Ingreso total A',money(r.revenue1)],['Ingreso total B',money(r.revenue2)]])+`<p class="econ-insight">${s.hide?'Calcula cambios porcentuales con la base promedio.':`La cantidad cambia ${f(r.dq*100)}% y el precio ${f(r.dp*100)}% usando el punto medio. ${r.e>0?'Ambos cambian en el mismo sentido: revisa si también hubo cambios en otros determinantes.':'La clasificación describe este tramo, no toda la curva.'}`}</p>`+formula('E = [(Q₂−Q₁)/((Q₁+Q₂)/2)] ÷ [(P₂−P₁)/((P₁+P₂)/2)] · ingreso total = P × Q.',[[`E = [(${vv(v.q2)} − ${vv(v.q1)}) / ((${vv(v.q1)} + ${vv(v.q2)})/2)] ÷ [(${vm(v.p2)} − ${vm(v.p1)}) / ((${vm(v.p1)} + ${vm(v.p2)})/2)]`,`${f(r.dq*100)} % ÷ ${f(r.dp*100)} % = ${f(r.e,3)} (${r.kind.toLowerCase()})`],[`Ingreso total A = ${vm(v.p1)} × ${vv(v.q1)}`,money(r.revenue1)],[`Ingreso total B = ${vm(v.p2)} × ${vv(v.q2)}`,money(r.revenue2)]])+help('Ayuda: pendiente, elasticidad e ingreso','<p>|E| &lt; 1: inelástica; |E| = 1: unitaria; |E| &gt; 1: elástica. El signo de una demanda decreciente suele ser negativo. La elasticidad no tiene unidades; cambiar pesos a miles de pesos no la altera.</p><p>Ingreso total no es utilidad: faltan los costos. Los puntos son un escenario didáctico y no una estimación causal.</p>')+exercise(['Elasticidad con signo','Ingreso total final ($)'],[r.e,r.revenue2],`ΔQ/promedio Q=${f(r.dq*100,3)}%. ΔP/promedio P=${f(r.dp*100,3)}%. Divide: E=${f(r.e,4)}. El ingreso final es ${money(v.p2)}×${f(v.q2)}=${money(r.revenue2)}.`, 'Calcula E con el método del punto medio y el ingreso total de B.');
-  }
+  function elasticityOutput() { return EconomiaElasticidad.output({s, chart, stats, formula, help, exercise, h, f, money, vv, vm}); }
   function scaleOutput() {
     const v=s.scale,r=M.costs(v),max=Math.max(v.qa,v.qb,v.mode==='long'?v.q0:0)*1.4,min=Math.min(v.qa,v.qb)/2, points=Array.from({length:81},(_,i)=>min+(max-min)*i/80);
     const table=s.hide?'':`<div class="econ-sheet-scroll"><table class="econ-sheet econ-results"><caption>Resultados A y B · costos mensuales simulados</caption><thead><tr><th scope="col">Escenario</th><th scope="col">Exámenes/mes (Q)</th><th scope="col" title="Gasto mensual de producir Q exámenes.">Costo total ($/mes)</th><th scope="col" title="Costo total dividido por Q.">Costo medio ($/examen)</th><th scope="col" title="Derivada del costo total: cambio aproximado por un examen adicional.">Costo marginal ($/examen)</th></tr></thead><tbody>${[['A',r.a],['B',r.b]].map(([name,p])=>`<tr data-cost-scenario="${name}"><th scope="row">${name}</th><td>${f(p.q)}</td><td>${money(p.total)}</td><td>${money(p.average)}</td><td>${money(r.marginal(p.q))}</td></tr>`).join('')}</tbody></table></div>`;
@@ -212,14 +220,14 @@ const EconomiaLab = (() => {
     if(name==='market-doc')s.market=clone(defaults.market);
     if(name==='beverage')s.market={...clone(defaults.market),mode:'demand',name:'Bebida del documento · P=1.300−200Q',price:700,rows:[[0,1300,300],[1,1100,500],[2,900,700],[3,700,900],[4,500,1200],[5,300,1500],[6.5,0,2000]]};
     if(name==='health')s.market={...clone(defaults.market),name:'Consultas mensuales · ejemplo simulado',price:20000,rows:[[0,40000,5000],[50,30000,10000],[100,20000,15000],[150,10000,20000],[200,0,25000]]};
-    if(['inelastic','elastic','unit'].includes(name))s.elasticity={...clone(defaults.elasticity),q2:{inelastic:90,elastic:60,unit:80}[name]};
+    if(name.startsWith('elasticity-'))EconomiaElasticidad.preset(s.elasticity,name.slice(11));
     if(name.startsWith('scale-')){s.scale.mode='long';s.scale.alpha={'scale-economies':0.8,'scale-constant':1,'scale-diseconomies':1.2}[name];}
     if(name.startsWith('copay-'))s.insurance.copay=Number(name.split('-')[1]);
   }
   function newExercise() {
     const pick=a=>a[Math.floor(Math.random()*a.length)];
     if(s.tab==='market'){s.market=clone(defaults.market);s.market.price=pick([500,700,1100,1500]);}
-    if(s.tab==='elasticity')s.elasticity={p1:pick([10000,20000,30000]),p2:40000,q1:120,q2:pick([60,90,100])};
+    if(s.tab==='elasticity'){s.elasticity.view='demand';Object.assign(s.elasticity,{p1:pick([2,3,4]),p2:5,q1:100,q2:pick([60,70,90])});}
     if(s.tab==='scale'){s.scale.fixed=pick([600000,1000000,1500000]);s.scale.variable=pick([3000,5000,7000]);s.scale.qa=100;s.scale.qb=pick([150,200,250]);s.scale.congestion=0;s.scale.alpha=pick([0.7,0.8,1,1.2]);s.scale.c0=pick([1200000,1500000,1800000]);s.scale.q0=100;}
     if(s.tab==='productivity')s.productivity.rows=s.productivity.rows.map(([name])=>[name,pick([-20,-5,0,20,45,80])]);
     if(s.tab==='monopoly')s.monopoly={a:pick([1500,1800,2100]),b:200,c:300,d:pick([100,200,300])};
@@ -242,10 +250,11 @@ const EconomiaLab = (() => {
       const t=e.target,value=t.type==='checkbox'?t.checked:['number','range'].includes(t.type)?(t.value===''?null:Number(t.value)):t.value;
       if(get(path)===value)return true;
       remember();set(path,value);feedback='';
+      if(path==='elasticity.linear.segments'&&Number.isInteger(value)&&value>=2&&value<=20)s.elasticity.linear.segment=Math.min(s.elasticity.linear.segment,value-1);
       if(!['formulas','hide','market.baseline'].includes(path))s.answers[s.tab]=[];
-      document.querySelectorAll('[data-e-field]').forEach(el=>{if(el!==t&&el.dataset.eField===path)el.value=value??'';});
+      document.querySelectorAll('[data-e-field]').forEach(el=>{if(el!==t&&el.dataset.eField===path){if(el.type==='range'&&path.startsWith('elasticity.')&&Number.isFinite(value)&&value>Number(el.max))el.max=value*2;el.value=value??'';}});
       persist();
-      if(['market.mode','scale.mode'].includes(path))render();else updateOutput();
+      if(['market.mode','scale.mode','elasticity.view','elasticity.other.mode','elasticity.linear.segments'].includes(path))render();else updateOutput();
       return true;
     }
     if(e.type!=='click')return false;
@@ -282,9 +291,7 @@ const EconomiaLab = (() => {
     return true;
   }
   function open(tab) { if(tabs.some(([id])=>id===tab))s.tab=tab;feedback=''; }
-  let hoverCard;
   function clearExplanation() {
-    if(hoverCard)hoverCard.hidden=true;
     document.querySelectorAll('.econ-interactive .is-active').forEach(el=>el.classList.remove('is-active'));
   }
   function explainAt(event) {
@@ -295,11 +302,7 @@ const EconomiaLab = (() => {
     figure.querySelectorAll('[data-e-ref]').forEach(el=>el.classList.toggle('is-active',el.dataset.eRef===target.dataset.eRef));
     const reading=figure.querySelector('.econ-chart-reading');
     if(reading)reading.textContent=target.dataset.eExplain;
-    if(!hoverCard){hoverCard=document.createElement('div');hoverCard.className='econ-hover-card';hoverCard.setAttribute('aria-hidden','true');document.body.appendChild(hoverCard);}
-    hoverCard.textContent=target.dataset.eExplain;hoverCard.hidden=false;
-    const rect=target.getBoundingClientRect(),px=event.type==='focusin'?rect.left:event.clientX,py=event.type==='focusin'?rect.bottom:event.clientY;
-    hoverCard.style.left=Math.max(8,Math.min(px+14,innerWidth-hoverCard.offsetWidth-8))+'px';
-    hoverCard.style.top=Math.max(8,Math.min(py+16,innerHeight-hoverCard.offsetHeight-8))+'px';
+
   }
   for(const type of ['pointerover','focusin','click'])globalThis.document?.addEventListener(type,explainAt);
   globalThis.document?.addEventListener('pointerout',e=>{if(e.target.closest?.('[data-e-explain]')&&!e.relatedTarget?.closest?.('[data-e-explain]'))clearExplanation();});

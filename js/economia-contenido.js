@@ -138,8 +138,16 @@ El precio de consultas cambia de $20.000 a $25.000 y la cantidad de 100 a 90. Δ
 Ingreso total = P × Q. Con demanda inelástica, un alza de precio aumenta ingreso total entre esos puntos. Con demanda elástica lo reduce. Ingreso total del prestador no significa utilidad: aún deben restarse costos.
 Precauciones al leer una pendiente
 Una curva más empinada no basta para comparar elasticidades si cambian unidades, escalas o el punto observado. La elasticidad puede variar a lo largo de una demanda lineal. Dos observaciones no identifican un efecto causal si también cambiaron ingreso, calidad u otros factores.
-Sustitutos y complementos
-Elasticidad cruzada positiva es compatible con sustitutos; negativa con complementos, manteniendo lo demás constante. Una prestación de una clínica puede tener más sustitutos que el tratamiento necesario en general.`, [
+Oferta y casos extremos
+Es usa los mismos porcentajes del punto medio sobre la cantidad ofrecida. Para P de 4 a 5 y Q inicial 100: Q final 100 da Es=0; 110 da Es≈0,429; 125 da Es=1; 200 da Es=3. Una curva vertical representa cantidad fija; una horizontal, el caso ideal perfectamente elástico. Dos observaciones idénticas no permiten calcular elasticidad. La oferta responde según capacidad, inventarios, movilidad de insumos y tiempo disponible.
+Demanda lineal y máximo ingreso
+En P=7−0,5Q, la elasticidad puntual en magnitud es P/(0,5Q). Supera 1 en la mitad superior y es menor que 1 en la inferior. En Q=7 y P=3,5 vale 1 y el ingreso máximo es 24,5. Una tabla que salta de Q=6 a Q=8 muestra ingresos 24 en ambos puntos, pero no incluye ese máximo. El laboratorio distingue la elasticidad puntual de la elasticidad arco entre dos filas.
+Desplazamientos de oferta
+Trigo: más oferta puede llevar de P=3, Q=100 a P=2, Q=110 sobre la misma demanda inelástica; el ingreso baja de 300 a 220. Petróleo: una misma reducción horizontal de oferta genera un aumento mayor de precio cuando oferta y demanda responden poco. El laboratorio permite editar las sensibilidades de corto y largo plazo; los resultados no son pronósticos.
+Ingreso, sustitutos y complementos
+Elasticidad ingreso negativa caracteriza un bien inferior; positiva, uno normal. Entre 0 y 1 se habla de necesidad, por encima de 1 de lujo y en 1 de respuesta proporcional. Son respuestas al ingreso, no juicios sobre calidad. Elasticidad cruzada positiva es compatible con sustitutos; negativa con complementos, manteniendo lo demás constante. Una prestación de una clínica puede tener más sustitutos que el tratamiento necesario en general.
+Práctica editable
+Abre el laboratorio de Elasticidad: elige Demanda, Oferta, Ingresos: comparar, Demanda lineal, Trigo y petróleo o Ingreso y elasticidad cruzada. Cambia los valores o deslizadores; toca los puntos, curvas y áreas para leer sus explicaciones debajo del gráfico.`, [
       ['¿Cómo se clasifica una elasticidad precio de −0,47?', 'Inelástica, porque su magnitud es menor que 1.', 'El signo indica dirección; el valor absoluto se usa para clasificar sensibilidad.'],
       ['¿Por qué utilizar el método del punto medio?', 'Usa una base simétrica y obtiene la misma elasticidad al invertir los puntos.', 'Ambas variaciones porcentuales se dividen por el promedio correspondiente.'],
       ['¿Una curva empinada siempre prueba demanda inelástica?', 'No: la elasticidad depende de porcentajes y del punto observado.', 'Cambiar las unidades del gráfico cambia su apariencia sin cambiar la elasticidad.']

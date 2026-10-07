@@ -71,8 +71,13 @@
 .econ-area-key{font:inherit;line-height:1.5;text-align:left;background:#fff;border:1px solid #d9e4df;border-top:4px solid var(--area-color);border-radius:8px;padding:12px;cursor:help;color:#334f44}
 .econ-area-key span{font-size:calc(12px * var(--font-scale));font-weight:700}.econ-area-key strong{display:block;font-size:calc(21px * var(--font-scale));color:var(--area-color);margin:4px 0}.econ-area-key small{display:block;font-size:calc(12px * var(--font-scale))}
 .econ-interactive button.is-active{background:#edf5f0;box-shadow:0 0 0 2px #568e78}
-.econ-chart-reading{padding:12px;border:1px solid #cddfd6;border-radius:8px;background:#f0f7f3;color:#264d3d;font-size:calc(12px * var(--font-scale));line-height:1.6}
-.econ-hover-card{position:fixed;z-index:10000;pointer-events:none;max-width:min(330px,calc(100vw - 24px));box-sizing:border-box;padding:12px 14px;border:1px solid #a5c3b3;border-radius:9px;background:#153f33;color:#fff;box-shadow:0 5px 22px #153f3326;font:13px/1.6 system-ui,sans-serif;overflow-wrap:anywhere}
+.econ-chart-reading{padding:12px;min-height:7em;box-sizing:border-box;border:1px solid #cddfd6;border-radius:8px;background:#f0f7f3;color:#264d3d;font-size:calc(12px * var(--font-scale));line-height:1.6;overflow-wrap:anywhere}
+.econ-elastic-presets{display:grid;gap:6px;margin:12px 0}.econ-elastic-presets .study-btn{text-align:left;justify-content:flex-start;font-size:calc(12px * var(--font-scale))}
+.econ-revenue-balance{padding:14px;border:1px solid #b6d3c6;border-radius:10px;background:#edf6f1;color:#28513f;font-size:calc(13px * var(--font-scale));line-height:1.6;margin:12px 0}
+.econ-revenue-balance p{margin:6px 0}.econ-elastic-table{min-width:640px;font-variant-numeric:tabular-nums}.econ-elastic-table td{text-align:right}
+.econ-elastic-table .econ-selected-row>*{background:#fff0cf;border-top:2px solid #b57820;border-bottom:2px solid #b57820;color:#543c16}
+.econ-compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}.econ-comparison{min-width:0;padding:12px;border:1px solid #d7e4dd;border-radius:12px;background:#fcfefd}
+.econ-comparison .econ-stats{grid-template-columns:1fr}.econ-comparison .econ-area-keys{grid-template-columns:1fr}.econ-comparison .econ-formula{padding:12px;font-size:calc(13px * var(--font-scale))}.econ-comparison .econ-formula p,.econ-comparison .econ-formula-applied li{font-size:calc(13px * var(--font-scale))}
 .econ-welfare{padding:15px;border:1px solid #cfdfd7;border-radius:10px;background:#f8fbf9;color:#315144;font-size:calc(13px * var(--font-scale));line-height:1.7}
 .econ-welfare h4{margin:0 0 10px}.econ-welfare-loss{padding:10px 12px;background:#fff0f1;border-left:4px solid #a12c39;color:#802a35}
 .econ-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}

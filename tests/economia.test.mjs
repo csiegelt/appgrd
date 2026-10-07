@@ -22,7 +22,7 @@ test('midpoint elasticity is symmetric and revenue identity holds',()=>{
   close(r.e,-0.47368421052631576);assert.equal(r.kind,'Inelástica');close(r.revenue2,2250000);
   close(M.elasticity({p1:a.p2,p2:a.p1,q1:a.q2,q2:a.q1}).e,r.e);
   assert.equal(M.elasticity({...a,q2:80}).kind,'Unitaria');
-  assert.throws(()=>M.elasticity({...a,p2:20000}),/ΔP/);
+  assert.equal(M.elasticity({...a,p2:20000}).e,Infinity,'A horizontal ideal is supported explicitly');
   assert.throws(()=>M.elasticity({...a,q2:null}));
 });
 test('short-run fixed cost dilution is separate from long-run scale cases',()=>{

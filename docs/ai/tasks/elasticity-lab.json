@@ -1,0 +1,30 @@
+{
+  "id": "elasticity-lab",
+  "base_sha": "4a882f934c424b8d83ad861b36e1460ef3104a63",
+  "objective": "Extend the original economics laboratory with interactive, editable demand/supply elasticity lessons and the supplied revenue, linear-demand, wheat and oil examples; keep explanations from covering cards.",
+  "scope": [
+    "Five demand and supply cases, midpoint elasticity, zero/undefined/infinite cases, editable revenue comparisons and non-overlapping gained/lost revenue areas.",
+    "Linear demand table and selectable arcs, separate point elasticity, exact maximum-revenue chart and income/cross elasticity.",
+    "Editable wheat supply increase and oil short/long-run supply reduction with equal horizontal shifts and shared axes.",
+    "Keep explanations in document flow below each chart; independent accessible descriptions and collision-aware point labels, keyboard, mouse and touch.",
+    "Retain the original design, local persistence, saved old exercises, hidden results and all existing subject/exam behavior; add mathematical and browser regressions."
+  ],
+  "restrictions": [
+    "No push, merge, deployment, credentials, database operations or changes outside this worktree.",
+    "Synthetic public evidence only; one implementer, no edits while Claude reviews; initial review plus at most three correction rounds.",
+    "No new dependencies or remote content-generation services; preserve the separate collaborative application and its data."
+  ],
+  "previous_findings": [],
+  "files": [
+    "AGENTS.md", "docs/ai/revision-claude.md", "docs/ai/elasticity-lab.md", "docs/ai/tasks/elasticity-lab.json",
+    "index.html", "js/economia-elasticidad.js", "js/economia-lab.js", "js/economia-modelos.js", "js/economia-contenido.js",
+    "css/economia.css", "tests/elasticity.test.mjs", "tests/browser-elasticity.cjs", "tests/economia.test.mjs",
+    "tests/browser-economia.cjs", "tests/hotfix-ui.test.mjs", "package.json"
+  ],
+  "diff_only_files": ["index.html"],
+  "tests": [
+    "tests/ai-review.test.mjs", "tests/banco.test.mjs", "tests/cases.test.mjs", "tests/economia.test.mjs", "tests/elasticity.test.mjs",
+    "tests/exam.test.mjs", "tests/formulas.test.mjs", "tests/material.test.mjs", "tests/server.test.mjs",
+    "tests/study.test.mjs", "tests/usage.test.mjs", "tests/vercel.test.mjs", "tests/hotfix-ui.test.mjs"
+  ]
+}
