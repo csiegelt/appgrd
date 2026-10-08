@@ -2,13 +2,13 @@
 
 Codex implementa; Claude Code revisa mediante `npm run ai`.
 Sigue [docs/ai/revision-claude.md](docs/ai/revision-claude.md).
-Tarea: `elasticity-lab`, base `4a882f934c424b8d83ad861b36e1460ef3104a63`,
-rama `hotfix/produccion`. Ampliar elasticidad de oferta y demanda con ejemplos
-editables, ingresos, demanda lineal y desplazamientos de trigo/petróleo.
-Las explicaciones deben ocupar espacio propio sin tapar tarjetas.
+Tarea: `health-economics`, base `e1d6be4a7896c9a682632117048ffbc53cb7cd68`,
+rama `hotfix/produccion`. Integrar los apuntes de productividad marginal y utilidad
+del médico del 10 sep 2026 en temas, banco fijo, contexto IA y gráficos interactivos
+con fórmulas desarrolladas. Preservar diseño, material y avances existentes.
 
-Actualizar descriptor y evidencia; ejecutar `npm run ai -- test elasticity-lab`,
-crear commit y ejecutar `npm run ai -- review elasticity-lab`. Leer el JSON local.
+Actualizar descriptor y evidencia; ejecutar `npm run ai -- test health-economics`,
+crear commit y ejecutar `npm run ai -- review health-economics`. Leer el JSON local.
 Corregir dentro del alcance, probar y repetir con un máximo de tres correcciones
 después de la revisión inicial. Un bloqueo nunca equivale a aprobación.
 Un solo implementador; no modificar archivos ni Git durante la revisión.

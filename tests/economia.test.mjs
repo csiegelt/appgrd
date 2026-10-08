@@ -76,12 +76,12 @@ test('expanding the existing economics subject preserves its identity and every 
   const state={subjects:[existing],selected:existing.id,lesson:'old-topic',notes:{'custom-econ-original/old-topic':'Mi apunte'},progress:{'custom-econ-original/old-question':{known:true,attempts:2}},history:[{subject:existing.id,total:4}],caseSelection:{[existing.id]:'old-case'}};
   const next=I.enhance(state);assert.equal(next.subjects.length,1);assert.equal(next.subjects[0].id,existing.id);assert.deepEqual(next.subjects[0].lessons[0],existing.lessons[0]);assert.deepEqual(next.subjects[0].cases[0],existing.cases[0]);
   for(const k of ['selected','lesson','notes','progress','history','caseSelection'])assert.deepEqual(next[k],state[k]);
-  assert.equal(next.subjects[0].lessons.length,12);assert.equal(I.enhance(next),null);assert.equal(state.subjects[0].lessons.length,1);
+  assert.equal(next.subjects[0].lessons.length,17);assert.equal(I.enhance(next),null);assert.equal(state.subjects[0].lessons.length,1);
   assert.equal(I.enhance({subjects:[{...existing,name:'Economía aplicada'}]}),null);
 });
 test('economics guides, cards and cases are self-contained and refer to existing lessons',()=>{
-  assert.equal(base.lessons.length,11);assert.equal(base.lessons.flatMap(l=>l.questions).length,33);
-  assert.equal(new Set(base.lessons.flatMap(l=>l.questions).map(q=>q.id)).size,33);
+  assert.equal(base.lessons.length,16);assert.equal(base.lessons.flatMap(l=>l.questions).length,48);
+  assert.equal(new Set(base.lessons.flatMap(l=>l.questions).map(q=>q.id)).size,48);
   for(const l of base.lessons){assert.equal(l.materialStatus,'provided');assert.ok(l.summary.length>=3&&l.text.length>500&&l.questions.every(q=>q.answer&&q.explanation));}
   for(const c of base.cases){assert.equal(c.fictional,true);assert.ok(base.lessons.some(l=>l.id===c.lesson));assert.ok(c.steps.every(step=>step.length===3));}
 });

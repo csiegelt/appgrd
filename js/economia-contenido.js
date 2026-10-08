@@ -1,6 +1,6 @@
 /* Síntesis docente del documento aportado. Los ejemplos numéricos nuevos son simulados. */
 const ECONOMIA_ASIGNATURA = (() => {
-  const source = 'RESUMEN ECONOMIA CLAUDE.docx · guía organizada desde el documento, con precisiones conceptuales y ejercicios simulados de salud. Economías de escala: complemento solicitado.';
+  const source = 'RESUMEN ECONOMIA CLAUDE.docx · guía organizada con precisiones conceptuales y ejercicios simulados. Ampliación: Productividad marginal salud y Función de utilidad del médico con altruismo, 10 sep 2026. Economías de escala: complemento solicitado.';
   const lesson = (id, title, objective, summary, text, qa, lab) => ({ id: 'econ-' + id, title, objective, summary, text, source, materialStatus: 'provided', lab,
     questions: qa.map(([prompt, answer, explanation], i) => ({ id: `econ-${id}-q${i + 1}`, prompt, answer, explanation })) });
   const lessons = [
@@ -209,6 +209,112 @@ Referencia conceptual: OpenStax, Costs in the Long Run, https://openstax.org/boo
       ['Con F=$1.000.000, v=$5.000, k=0 y Q=200, ¿cuál es el costo medio?', '$10.000 por examen.', 'CT=1.000.000+5.000×200=2.000.000; dividir por 200 da 10.000.']
     ], 'scale')
   ];
+  lessons.push(
+    lesson('produccion-salud', 'Producción de salud y productividad marginal', 'Distinguir salud total, marginal y producción de atenciones; conectar con Grossman.', [
+      'H=f(M,X): la atención médica y los determinantes sociales contribuyen a la salud.',
+      'Un producto marginal positivo y decreciente aumenta H cada vez menos; no implica que H caiga.',
+      'La salud como capital se deprecia y puede reponerse; producir consultas no equivale a producir salud.'
+    ], `Guía de estudio · Productividad marginal en salud (apunte del 10 de septiembre de 2026)
+La salud H es un resultado producido con atención médica M y otros insumos X: alimentación, educación, vivienda, entorno y hábitos. La productividad marginal ∂H/∂M mide cuánto cambia H al aumentar M manteniendo X constante. La segunda derivada negativa representa rendimientos marginales decrecientes de M, no rendimientos decrecientes de escala: estos últimos cambian todos los insumos.
+Fórmulas desarrolladas: ejemplo construido para estudiar
+Con X fijo, H=100(1−exp(−0,35M)). Derivar exp(−0,35M) introduce el factor −0,35: PMM=35exp(−0,35M). Al derivar nuevamente, ∂²H/∂M²=−12,25exp(−0,35M). Para M=2: H=50,3415 y PM=17,3805. Para M=3: H=65,0062. La unidad adicional aporta 65,0062−50,3415=14,6647. PM es una derivada local; PM×ΔM solo aproxima un cambio finito. El laboratorio permite recalcular todos los valores.
+Tramo plano o flat of the curve
+Cuando M es grande, la pendiente se acerca a cero aunque H permanezca alto. Es posible gastar mucho por una ganancia pequeña. No existe en este ejercicio un umbral clínico universal para declarar inútil una atención. Comparar países con distinto gasto y salud no prueba por sí solo causalidad: precios, población y determinantes sociales también difieren. La asignación debe comparar beneficios marginales por costo, equidad y alternativas viables; no prescribe retirar atención a pacientes.
+Grossman: salud como capital
+Un stock aporta bienestar directo (consumo) y tiempo saludable para trabajar u otras actividades (inversión). La identidad H(t+1)=(1−δ)H(t)+I(t) resta depreciación y añade inversión bruta. Con H₀=80, δ=0,10 e I=12: H₁=0,90×80+12=84; H₂=0,90×84+12=87,6. Para mantener H₀ se requiere I=δH₀=8. La pestaña Capital de salud permite experimentar con esos datos. I se mide en unidades del stock, no en pesos. Si aumenta δ, mantener el mismo H requiere mayor I; eso no demuestra que la inversión óptima necesariamente aumente: también puede cambiar el stock deseado, los beneficios, costos y restricciones. Elegir inversión óptima exige comparar beneficio marginal valorado y costo marginal.
+Producción de salud versus atenciones
+Q=g(personal,camas,equipos) produce servicios o casos; H=f(M,X) produce salud. Una enfermera adicional puede reducir espera o ampliar Q sin que el cambio en H sea idéntico. Dotación, costos y escala hospitalaria requieren ajustar por complejidad y calidad. El índice H ilustrativo no es un porcentaje de eficacia ni un AVAC.
+Referencia conceptual: Grossman (1972), The Demand for Health, NBER. https://www.nber.org/books-and-chapters/demand-health-theoretical-and-empirical-investigation`, [
+      ['¿Puede crecer H mientras cae su producto marginal?', 'Sí: si el producto marginal es positivo pero decreciente.', 'Cada unidad adicional aporta salud, aunque menos que la anterior.'],
+      ['Con H₀=80, δ=10% e I=12, ¿cuál es H₁?', '84 unidades de stock.', 'Primero se deprecian 8 unidades: 80−8+12=84.'],
+      ['¿Más consultas prueban una mejora de salud?', 'No: volumen de servicios y resultados de salud son productos diferentes.', 'Hay que medir resultados y ajustar por calidad y complejidad.']
+    ], 'production'),
+    lesson('isocuantas', 'Isocuantas, sustitución y costo mínimo', 'Obtener una mezcla de insumos y explicar la tangencia con el isocosto.', [
+      'Una isocuanta reúne combinaciones de M y X con la misma salud.',
+      'El isocosto tiene pendiente −pM/pX; la isocuanta, −PMM/PMX.',
+      'En el óptimo interior se igualan productos marginales por unidad de gasto.'
+    ], `Guía de estudio · Sustitución entre atención médica y otros insumos
+M representa atención y X otros insumos. Con sustitución parcial, distintas mezclas pueden producir un mismo H; no implica que saneamiento o educación reemplacen cualquier tratamiento. La relación depende de tecnología y contexto. Usamos H=A√(MX), con A,M,X positivos, como ejemplo docente distinto del modelo de saturación de la pestaña Producción de salud.
+Construir una isocuanta
+Divide H entre A: H/A=√(MX). Eleva al cuadrado: (H/A)²=MX. Despeja X=(H/A)²/M. Así, si aumenta M, puede bajar X manteniendo H. Una isocuanta de H mayor queda más lejos del origen.
+Pendiente y unidades
+PMM=(A/2)√(X/M), PMX=(A/2)√(M/X). En ejes M horizontal y X vertical: dX/dM=−PMM/PMX=−X/M. Su magnitud expresa cuántas unidades de X se pueden sustituir con una unidad adicional de M. Para expresar M reemplazable por X se usa la inversa PMX/PMM. No intercambies ejes ni unidades.
+Costo mínimo paso a paso
+C=pM·M+pX·X, luego X=C/pX−(pM/pX)M. En la tangencia X/M=pM/pX, equivalente a PMM/pM=PMX/pX. Sustituyendo en la producción: M*=H/A×√(pX/pM); X*=H/A×√(pM/pX).
+Ejercicio con el precio relativo del apunte
+H=80, A=10, pM=3 y pX=1. M*=8/√3=4,6188; X*=8√3=13,8564. C*=3×4,6188+13,8564=27,7128. Verifica H=10√(4,6188×13,8564)=80. La mezcla M=X=8 también produce 80, pero cuesta 3×8+8=32. El ahorro respecto de esa mezcla es 32−27,7128=4,2872. No significa que invertir solo en X sea posible: ambos insumos son necesarios en esta función.
+Comparación
+Si pM=pX, el óptimo de esta tecnología simétrica usa M=X. Al subir pM manteniendo H y pX, se sustituye hacia X y el costo mínimo sube. El gráfico muestra además una isocuanta de 0,625H: con H=80 representa H=50. Todos los resultados provienen de fórmulas y precios simulados.`, [
+      ['¿Qué se mantiene fijo sobre una isocuanta?', 'El nivel de salud producido H.', 'Pueden cambiar las cantidades de insumos, no el resultado definido por esa curva.'],
+      ['Con pM/pX=3 y H=A√(MX), ¿cuánto vale X/M en el óptimo?', '3.', 'PMM/PMX=X/M=pM/pX en la tangencia interior.'],
+      ['¿Qué significa PMM/pM=PMX/pX?', 'Igual producto marginal por unidad de gasto en ambos insumos.', 'Si fueran distintos, una reasignación pequeña podría mejorar el resultado al mismo costo.']
+    ], 'inputs'),
+    lesson('utilidad-medico', 'Utilidad del médico, agencia e incentivos de pago', 'Resolver esfuerzo privado y distinguir FFS, capitación e ingreso objetivo.', [
+      'U(Y,e,H) reúne ingreso, desutilidad del esfuerzo y bienestar del paciente.',
+      'FFS añade ingreso marginal por servicio; capitación fija pago por inscrito y período.',
+      'Altruismo, normas y reputación modifican incentivos; los riesgos no son inevitables.'
+    ], `Guía de estudio · Función de utilidad del médico con altruismo (apunte del 10 de septiembre de 2026)
+El paciente, principal, delega decisiones en el médico, agente. La información desigual y los objetivos parcialmente distintos generan un problema de agencia sin exigir engaño. En U(Y,e,H), el ingreso neto Y aporta utilidad; el esfuerzo e genera desutilidad; H representa el bienestar del paciente. La formulación general puede tener utilidad marginal positiva y decreciente del ingreso, desutilidad creciente del esfuerzo y un peso altruista variable.
+Modelo que puedes resolver
+Para aislar mecanismos usamos U=Y−ce²/2+αH(e), H(e)=be−de²/2, c,d>0 y α≥0. Es una simplificación cuasilineal: aquí la utilidad marginal del ingreso es constante. H es un beneficio abstracto, no una escala clínica; puede caer por sobretratamiento. Esfuerzo y servicios se tratan como equivalentes solo en el ejercicio. Omitimos costos monetarios adicionales a Y.
+FFS y capitación
+FFS: Y=pe. Sustituir da U=(p+αb)e−(c+αd)e²/2. Derivar: dU/de=p+αb−(c+αd)e. Igualar a cero: eFFS=(p+αb)/(c+αd). Capitación: Y=Y₀, por eso dY/de=0 y eCAP=αb/(c+αd). La segunda derivada −(c+αd)<0 verifica máximo. Con un piso profesional emin se usa máx(emin,raíz). No se exige tangencia si el piso es vinculante.
+Ejemplo resuelto
+p=4, c=1, α=2, b=4 y d=0,5. Denominador=1+2×0,5=2. eFFS=(4+2×4)/2=6; eCAP=(2×4)/2=4. Si Y₀=20, los ingresos son 4×6=24 y 20, respectivamente. H(6)=4×6−0,5×36/2=15; H(4)=16−4=12. El máximo de H está en e=b/d=8, pero no es automáticamente el óptimo social porque faltan costos de oportunidad. Bajo α=0 y piso=0, la capitación da esfuerzo cero en este modelo, no en toda práctica médica real.
+Riesgos y mitigación
+FFS puede estimular volumen excesivo; capitación puede incentivar subprestación o selección de pacientes menos costosos. No se deducen de ello conductas inevitables. Altruismo, auditoría, normas y reputación también sostienen calidad. Salario paga por tiempo o contrato; capitación por inscrito y período. No son institucionalmente iguales aunque ambos puedan tener ingreso marginal nulo por servicio.
+Hipótesis separada: ingreso objetivo
+Si se busca Y*=40 con tarifa p=4 y sin costos, e=Y*/p=10. Si p cae a 2, se requieren 20 servicios. Es una hipótesis compensatoria que no debe confundirse con la maximización anterior: con α=0 esta última da e=p/c y predice menor esfuerzo ante menor p. El patrón observado necesita evidencia y capacidad o demanda suficientes.
+Tabla ilustrativa del apunte
+FFS: 5,2 consultas por paciente-año e ingreso mensual de $2.850.000. Capitación: 3,1 y $2.400.000. Son cifras pedagógicas, no observaciones empíricas ni resultados calibrados del simulador. El incentivo marginal FFS es positivo; en capitación el pago marginal es cero y el costo del esfuerzo puede volver negativo el beneficio marginal privado.
+Extensiones
+Medicina defensiva añade consecuencias esperadas de litigios; prestigio y reputación añaden valor profesional; normas éticas restringen elecciones. Un piso de esfuerzo es solo una representación simplificada y no garantiza calidad real. Ellis y McGuire (1986) estudian pago hospitalario prospectivo y reparto de costos; nuestro ejercicio FFS/capitación ilustra la lógica y no replica su estimación ni identifica capitación con pago por GRD.`, [
+      ['¿Por qué desaparece p de la condición de capitación?', 'Porque el ingreso fijo no aumenta al prestar un servicio adicional.', 'Su derivada respecto del esfuerzo es cero; permanecen altruismo y desutilidad.'],
+      ['Con p=4,c=1,α=2,b=4,d=0,5, ¿cuáles son los esfuerzos sin piso?', 'FFS=6 y capitación=4.', 'El denominador es 2; los numeradores son 12 y 8.'],
+      ['Con Y*=40 y p=2, ¿qué volumen requiere la hipótesis de ingreso objetivo?', '20 servicios, si es factible y no hay costos.', 'e=Y*/p=40/2; no es el óptimo derivado de la función de utilidad anterior.']
+    ], 'physician'),
+    lesson('altruismo', 'Altruismo y frontera ingreso–salud', 'Relacionar preferencias, costo de oportunidad y tangencia o solución de borde.', [
+      'Una frontera fija los intercambios factibles entre ingreso y salud del paciente.',
+      'Mayor peso altruista cambia la elección, manteniendo tecnología y recursos.',
+      'Las pendientes se igualan en un óptimo interior; los extremos requieren analizar bordes.'
+    ], `Guía de estudio · Preferencias del médico y salud del paciente
+Con tiempo y recursos limitados, dedicar más recursos al paciente puede reducir ingreso disponible. Es una disyuntiva en este escenario, no una afirmación universal sobre toda práctica médica. Representamos Y=Ymáx[1−(H/Hmáx)²] para 0≤H≤Hmáx. Los puntos por encima no son factibles. La frontera es decreciente y cóncava; cambiar α altera preferencias, no la frontera.
+Función de utilidad con ingreso marginal decreciente
+U=ln(1+Y)+αH. ∂U/∂Y=1/(1+Y)>0 y ∂²U/∂Y²=−1/(1+Y)²<0; ∂U/∂H=α. El ingreso está normalizado en unidades monetarias abstractas. Una curva de indiferencia de nivel Ubar cumple Y=exp(Ubar−αH)−1. Su pendiente es −α(1+Y).
+Tangencia desarrollada
+Escribe z=Ymáx/Hmáx²; la frontera es Y=Ymáx−zH² con pendiente −2zH. Sobre ella, dU/dH=α−2zH/(1+Y). Igualando a cero: α(1+Ymáx−zH²)=2zH. Reordena: αzH²+2zH−α(1+Ymáx)=0. La raíz positiva estable es H*=α(1+Ymáx)/[z+√(z²+α²z(1+Ymáx))]. Se limita a Hmáx. Para α=0, H*=0. La función es estrictamente cóncava sobre la frontera y la elección es única.
+Ejemplo resuelto
+Ymáx=100, Hmáx=10, α=1. z=100/100=1. H*=101/[1+√102]=9,0995; Y*=100−9,0995²=17,1990. Con α/2=0,5 se obtiene H*=8,2470 e Y*=31,9878. Al aumentar α se elige más salud y menos ingreso. Cada indiferencia debe pasar por su propio punto y tener la pendiente correcta; dibujar curvas alejadas del punto no demuestra tangencia.
+Bordes y lectura crítica
+Con α=0 se elige Ymáx y H=0; con α suficientemente alto se llega a Hmáx e Y=0. En el borde ya no se exige igualdad de pendientes. El laboratorio identifica ambos casos. Los números son pedagógicos: no clasifican éticamente a profesionales ni predicen ingresos reales. Los niveles de utilidad de dos personas con distintos α no son comparables como medidas de bienestar interpersonal.
+Normas y reputación
+Reputación, vocación y restricciones profesionales pueden modificar preferencias y elecciones. Un esquema de pago idéntico puede producir respuestas diferentes. No es válido afirmar que el altruismo siempre elimina sobreprestación o subprestación.
+Referencia conceptual: Ellis y McGuire, Provider behavior under prospective reimbursement (1986). https://people.bu.edu/ellisrp/EllisPapers/1986_EllisMcGuire_JHE_MixedPayment.pdf`, [
+      ['¿Cambiar α desplaza la frontera de posibilidades?', 'No: cambia preferencias sobre la misma frontera.', 'Para desplazar la frontera tendrían que cambiar recursos o tecnología.'],
+      ['¿Qué pendientes se igualan en la tangencia?', '−2zH y −α(1+Y).', 'La primera pertenece a la frontera y la segunda a la curva de indiferencia.'],
+      ['¿Todo óptimo exige tangencia?', 'No: puede haber una solución en el borde.', 'Con α=0 se elige H=0; si el peso es suficientemente alto, puede elegirse Hmáx.']
+    ], 'altruism'),
+    lesson('evaluacion', 'Evaluación económica, AVAC y costo de oportunidad', 'Calcular incrementos y evitar errores de interpretación del costo por AVAC.', [
+      'Costo-efectividad compara costos y resultados; costo-utilidad usa AVAC.',
+      'El cociente incremental necesita comparador, horizonte y signos correctos.',
+      'El beneficio neto con un umbral hipotético ayuda a interpretar pérdidas, ganancias y ahorro.'
+    ], `Guía de estudio · Implicancias de la productividad marginal
+Que una intervención produzca beneficio no basta para priorizarla. Hay que comparar cuánta salud adicional aporta y qué cuesta respecto de una alternativa. También cuentan equidad, acceso, incertidumbre e impacto presupuestario. La productividad de la atención depende del tramo de la curva y del contexto.
+Resultados
+Costo-efectividad puede expresar resultados como casos evitados o años ganados. Costo-utilidad suele usar años de vida ajustados por calidad (AVAC o QALY). Sin descuento, AVAC=Σ(calidad del estado×años en ese estado): dos años con ponderación 0,8 producen 1,6 AVAC; dos años con 0,6, 1,2; la diferencia es 0,4. Las ponderaciones requieren medición válida. El índice abstracto H de los laboratorios no se convierte automáticamente a AVAC. Las ponderaciones pueden incluir estados peores que muerte; los ejemplos aquí usan AVAC acumulados no negativos.
+Cálculo incremental desarrollado
+A cuesta 100 unidades monetarias y produce 2 AVAC; B cuesta 160 y produce 3. ΔC=160−100=60; ΔE=3−2=1. RCEI=ΔC/ΔE=60/1=60 unidades monetarias por AVAC adicional. No uses CB/EB=53,33 como si fuera un resultado incremental.
+Umbral y beneficio neto
+Con λ=80 unidades monetarias por AVAC, BMNI=λΔE−ΔC=80×1−60=20. B tiene mayor beneficio neto bajo ese umbral hipotético. Con λ=40, BMNI=40−60=−20 y A tiene mayor beneficio neto. El laboratorio muestra el cambio de la recta de referencia al editar λ. No se presenta un umbral real ni se formula una recomendación clínica.
+Dominancia y casos límite
+Si B cuesta menos y produce más salud, domina a A. Si cuesta más y produce menos, está dominada. Una RCEI negativa puede aparecer en ambos casos y no distingue lo conveniente de lo inconveniente. Con ΔAVAC=0, el cociente no está definido: compara costos. Con menos costo y menos salud hay intercambio; BMNI evalúa si el ahorro compensa el valor asignado a la pérdida bajo λ. Si costos y salud son iguales, hay empate.
+Alcance
+Se comparan dos alternativas, con costos y resultados del mismo horizonte y perspectiva, sin descuento ni incertidumbre. Un análisis real con muchas alternativas requeriría ordenar opciones y evaluar dominancia extendida, además de sensibilidad y presupuesto. Un resultado favorable no garantiza que haya recursos disponibles ni que la distribución sea equitativa.`, [
+      ['Con A=(100,2) y B=(160,3), ¿cuál es la RCEI?', '60 unidades monetarias por AVAC adicional.', 'Se divide 160−100 por 3−2, no el costo total entre el resultado total.'],
+      ['¿Qué pasa si ΔAVAC=0?', 'La RCEI no está definida; compara costos.', 'Dividir por cero no produce una medida útil de costo-efectividad.'],
+      ['¿Cuántos AVAC aportan 2 años con calidad 0,8, sin descuento?', '1,6 AVAC.', 'Se multiplican duración y ponderación: 2×0,8=1,6.']
+    ], 'evaluation')
+  );
   const cases = [
     { id: 'econ-caso-escala', lesson: 'econ-escala', title: 'Ampliar un laboratorio municipal', role: 'Director/a de hospital', fictional: true, text: 'Un laboratorio procesa 100 exámenes al mes. Tiene un costo fijo de $1.000.000 y un costo variable de $5.000 por examen. Puede llegar a 200 sin ampliar equipos. Debes evaluar la propuesta.', steps: [
       ['Calcular', '¿Cuánto cuestan en total y por examen los escenarios de 100 y 200?', '100: total $1.500.000 y medio $15.000. 200: total $2.000.000 y medio $10.000.'],
@@ -235,13 +341,13 @@ const EconomiaIntegracion = (() => {
   const find = state => state.subjects.find(s => s.id === 'economia-salud') || state.subjects.find(s => ['economia de la salud', 'economia salud'].includes(normalized(s.name)));
   function enhance(state) {
     const existing = find(state);
-    if (!existing || existing.economiaVersion === 1) return null;
+    if (!existing || existing.economiaVersion >= 2) return null;
     const next = structuredClone(state), s = next.subjects.find(s => s.id === existing.id);
     // Existing lesson and case objects are kept exactly as saved; only new IDs are appended.
     for (const l of ECONOMIA_ASIGNATURA.lessons) if (!s.lessons.some(old => old.id === l.id)) s.lessons.push(structuredClone(l));
     s.cases ||= [];
     for (const c of ECONOMIA_ASIGNATURA.cases) if (!s.cases.some(old => old.id === c.id)) s.cases.push(structuredClone(c));
-    s.economiaVersion = 1;
+    s.economiaVersion = 2;
     return next;
   }
   return { find, enhance };

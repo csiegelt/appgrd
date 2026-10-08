@@ -9,7 +9,7 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
   page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewport({width:390,height:844});
-  let requests=0,fail=false,hold=false,release,waiting,expectedTopics=11,lastSize=0,sessionDelay=0;
+  let requests=0,fail=false,hold=false,release,waiting,expectedTopics=16,lastSize=0,sessionDelay=0;
   await page.setRequestInterception(true);
   page.on('request',async req=>{
    const url=new URL(req.url());if(!url.pathname.startsWith('/api/'))return req.continue();
@@ -18,10 +18,10 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
    if(url.pathname==='/api/usage')return req.respond({status:404,contentType:'application/json',body:JSON.stringify({error:'El contador de consumo no se muestra en esta publicación.',code:'USAGE_HIDDEN'})});
    if(url.pathname==='/api/tutor'){
     requests++;const data=JSON.parse(req.postData());assert.equal(data.generateExam,true);assert.equal(data.generate,undefined);assert.equal(data.web,undefined);assert.equal(data.context.name,'Economía de la Salud');assert.equal(data.context.lessons.length,expectedTopics);assert.ok([10,15].includes(data.examSize));lastSize=data.examSize;
-    if(expectedTopics===12)assert.ok(data.context.lessons.some(l=>l.title==='Mi tema ingresado'&&l.text.includes('Contenido personal actualizado')));
+    if(expectedTopics===17)assert.ok(data.context.lessons.some(l=>l.title==='Mi tema ingresado'&&l.text.includes('Contenido personal actualizado')));
     if(hold)await new Promise(done=>{release=done;waiting()});
     if(fail)return req.respond({status:502,contentType:'application/json',body:JSON.stringify({error:'La IA no entregó una prueba completa. Tu prueba anterior se conserva.'})});
-    body={exam:{questions:Array.from({length:data.examSize},(_,i)=>({prompt:`Ejercicio simulado ${i+1}: ¿cuál es la interpretación correcta del concepto?`,options:['Opción A','Opción B','Opción C','Opción D'],answerIndex:i%4,explanation:'Explicación reservada hasta entregar '+i,sourceTitle:data.context.lessons[i%11].title}))}};
+    body={exam:{questions:Array.from({length:data.examSize},(_,i)=>({prompt:`Ejercicio simulado ${i+1}: ¿cuál es la interpretación correcta del concepto?`,options:['Opción A','Opción B','Opción C','Opción D'],answerIndex:i%4,explanation:'Explicación reservada hasta entregar '+i,sourceTitle:data.context.lessons[i%expectedTopics].title}))}};
    }
    return req.respond({status:200,contentType:'application/json',body:JSON.stringify(body)});
   });
@@ -120,7 +120,7 @@ const puppeteer=require('puppeteer-core'),assert=require('node:assert/strict'),p
   await page.waitForFunction(()=>document.querySelectorAll('[data-action="exam-jump"]').length===15);
   assert.equal(lastSize,15);assert.notEqual((await attempt()).id,ten.id);assert.equal((await attempt()).answers.filter(a=>a!==null).length,0);
   assert.equal((await history()).length,1,'A replaced exam without delivery adds no grade');assert.equal(await page.$eval('.study-exam-new',e=>e.open),false);
-  expectedTopics=12;
+  expectedTopics=17;
   await page.evaluate(()=>{const state=JSON.parse(localStorage.getItem('grd-estudio-v1'));let subject=state.subjects.find(s=>s.id==='economia-salud');if(!subject){subject=structuredClone(ECONOMIA_ASIGNATURA);state.subjects.push(subject)}subject.lessons.push({id:'my-exam-topic',title:'Mi tema ingresado',text:'Contenido personal actualizado para la siguiente prueba.',objective:'Comprender',summary:[],questions:[]});localStorage.setItem('grd-estudio-v1',JSON.stringify(state))});
   await page.reload();await enter();await page.waitForSelector('#study-exam-prompt');
   await tap('.study-exam-new summary');await tap('.study-exam-new [data-action="set-exam-size"][data-size="10"]');await page.select('#study-exam-threshold','0.5');

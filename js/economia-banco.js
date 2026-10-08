@@ -132,3 +132,57 @@ const BANCO_ECONOMIA = [
   { lesson: 'econ-escala', type: 'tf', prompt: 'Costo medio y costo marginal son dos nombres para la misma medida: el costo total dividido por la cantidad.', answer: false, explanation: 'Falso. Costo medio = CT/Q; costo marginal = costo de una unidad adicional. En el corto plazo, CMe = F/Q + v + kQ y CMg = v + 2kQ.' },
   { lesson: 'econ-escala', type: 'tf', prompt: 'Si un modelo muestra economías de escala en un tramo, crecer indefinidamente siempre es óptimo.', answer: false, explanation: 'Falso. El modelo describe un tramo y no implica que crecer indefinidamente sea óptimo; además, deben considerarse calidad, complejidad y acceso de los pacientes.' }
 ];
+
+// Ampliación docente: en MC la primera alternativa es la correcta; el motor las mezcla.
+BANCO_ECONOMIA.push(...[
+  ['produccion-salud', [
+    ['En H=f(M,X), ¿qué mantiene fijo la derivada parcial respecto de M?', ['Los otros insumos X.', 'La cantidad M.', 'El nivel H necesariamente.', 'El gasto total necesariamente.'], 'La derivada parcial cambia M manteniendo X constante; H puede aumentar.'],
+    ['Si PMM>0 y la segunda derivada es negativa, ¿qué ocurre al aumentar M?', ['H aumenta con ganancias cada vez menores.', 'H disminuye necesariamente.', 'El producto marginal aumenta.', 'H se mantiene exactamente constante.'], 'La primera derivada determina crecimiento; la segunda indica que la pendiente disminuye.'],
+    ['Con H=100(1−exp(−0,35M)), ¿cuál es el producto marginal?', ['35exp(−0,35M).', '100/M.', '−35exp(−0,35M).', '100exp(0,35M).'], 'La regla de la cadena da 100×0,35×exp(−0,35M); su signo es positivo.'],
+    ['Con H₀=80 y depreciación 10%, ¿qué inversión mantiene el stock inicial?', ['8 unidades de stock.', '80 unidades de stock.', '12 unidades de stock.', '0,1 unidades de stock.'], 'Mantener H exige I=δH₀=0,10×80=8. No es necesariamente gasto monetario.'],
+    ['¿Cómo distinguir producción de salud de producción hospitalaria?', ['H mide resultados; Q puede medir servicios o casos producidos.', 'H y Q son siempre intercambiables.', 'Más Q garantiza más H en igual proporción.', 'El personal solo produce H, nunca Q.'], 'Las consultas son insumos para producir salud y también productos de una organización sanitaria; no son el mismo resultado.'],
+    ['Un producto marginal bajo significa necesariamente que toda la salud total es baja.', false, 'Una curva casi plana puede tener un nivel total alto y un incremento pequeño.'],
+    ['En Grossman, el tiempo saludable puede tener valor de inversión además de utilidad directa.', true, 'La salud aporta bienestar y puede aumentar el tiempo disponible para actividades productivas.'],
+    ['Comparar gasto y esperanza de vida de dos países basta para identificar el efecto causal de M.', false, 'Precios, población y otros determinantes difieren; una comparación agregada no identifica por sí sola causalidad.']
+  ]],
+  ['isocuantas', [
+    ['En H=A√(MX), ¿qué ecuación describe X para H fijo?', ['X=(H/A)²/M.', 'X=H/(A·M).', 'X=(A/H)²·M.', 'X=H−M.'], 'Divide por A, eleva al cuadrado y despeja X: (H/A)²=MX.'],
+    ['Con M horizontal y X vertical, ¿qué representa |dX/dM|?', ['Unidades de X reemplazables por una unidad adicional de M.', 'Unidades de M reemplazables por una unidad de X.', 'Pesos de ingreso médico por hora.', 'El nivel de salud total de la isocuanta.'], 'La pendiente es cambio de X dividido por cambio de M; su inversa tiene las unidades contrarias.'],
+    ['¿Cuál es la condición interior de costo mínimo?', ['PMM/pM=PMX/pX.', 'PMM=PMX para cualquier precio.', 'M=X para cualquier tecnología.', 'pM+pX=H.'], 'Se iguala el producto marginal por unidad de gasto; equivalentemente PMM/PMX=pM/pX.'],
+    ['Con H=80,A=10,pM=3,pX=1, ¿cuál es M* aproximadamente?', ['4,6188.', '13,8564.', '8.', '24.'], 'M*=80/10×√(1/3)=8/√3=4,6188. X*=13,8564.'],
+    ['Con esa misma mezcla óptima, ¿cuánto cuesta producir H=80?', ['27,7128 unidades monetarias.', '32 unidades monetarias.', '80 unidades monetarias.', '18,4752 unidades monetarias.'], 'C*=3×4,6188+1×13,8564=27,7128; 32 corresponde a M=X=8.'],
+    ['Una isocuanta une combinaciones que producen el mismo nivel de salud.', true, 'El resultado H se mantiene; las cantidades de insumos pueden variar sobre la curva.'],
+    ['La sustitución parcial prueba que cualquier tratamiento puede reemplazarse completamente por educación.', false, 'La sustituibilidad depende de tecnología y contexto; el ejemplo requiere ambos insumos positivos.'],
+    ['En H=A√(MX), subir solo pM cambia la tecnología A.', false, 'Cambiar un precio altera la mezcla de costo mínimo, no la función de producción.']
+  ]],
+  ['utilidad-medico', [
+    ['¿Cuál es el ingreso marginal por servicio en una capitación fija sin bonos?', ['Cero.', 'La tarifa FFS p.', 'El ingreso total Y₀.', 'El doble del costo de esfuerzo.'], 'El pago por inscrito y período no cambia con una prestación adicional; los costos sí pueden cambiar.'],
+    ['En U=Y−ce²/2+α(be−de²/2), ¿qué condición caracteriza un óptimo FFS sin piso?', ['p+αb−(c+αd)e=0.', 'Y₀+αb+ce=0.', 'p−αb+(c+αd)e=0.', 'p=e independientemente de c,α,b,d.'], 'Se sustituye Y=pe y se deriva respecto de e; la segunda derivada negativa confirma un máximo.'],
+    ['Con p=4,c=1,α=2,b=4,d=0,5 y sin piso, ¿cuál es el esfuerzo FFS?', ['6.', '4.', '8.', '12.'], 'eFFS=(4+2×4)/(1+2×0,5)=12/2=6. Capitación daría 4.'],
+    ['Si el óptimo libre en capitación es 4 y una norma exige e≥5, ¿qué se elige?', ['5, una solución de borde.', '4, ignorando la norma.', '9, sumando la norma al óptimo.', '0, por ingreso marginal nulo.'], 'El máximo restringido de esta función cóncava es máx(5,4)=5; la tangencia libre deja de ser factible.'],
+    ['Bajo ingreso objetivo Y*=40, sin costos, ¿qué pasa si p baja de 4 a 2?', ['El volumen requerido sube de 10 a 20.', 'El volumen requerido baja de 10 a 5.', 'El volumen requerido sigue en 10.', 'El ingreso objetivo necesariamente se duplica.'], 'e=Y*/p: 40/4=10 y 40/2=20. Es una hipótesis compensatoria separada del óptimo de utilidad.'],
+    ['El problema de agencia exige que el médico esté cometiendo fraude.', false, 'Bastan información asimétrica y objetivos que no coinciden; no se presume deshonestidad.'],
+    ['FFS puede incentivar sobreprestación y capitación subprestación, sin que sean resultados inevitables.', true, 'Altruismo, normas, auditorías, reputación y restricciones de capacidad también influyen.'],
+    ['Las cifras 5,2 y 3,1 consultas del apunte son estimaciones empíricas que calibran el simulador.', false, 'El apunte las presenta como ilustraciones pedagógicas; no son evidencia empírica ni calibración del modelo.']
+  ]],
+  ['altruismo', [
+    ['En U=ln(1+Y)+αH, ¿cómo cambia la utilidad marginal del ingreso al aumentar Y?', ['Disminuye, aunque sigue positiva.', 'Aumenta sin límite.', 'Se vuelve siempre negativa.', 'Es igual a α para todo Y.'], '∂U/∂Y=1/(1+Y)>0; su derivada −1/(1+Y)² es negativa.'],
+    ['¿Qué ocurre al aumentar α en la misma frontera del laboratorio?', ['Se elige más H y menos Y hasta alcanzar el borde.', 'La frontera se desplaza automáticamente hacia afuera.', 'Se elige siempre más ingreso y menos salud.', 'El nivel H permanece fijo para todo α.'], 'El peso altruista modifica la preferencia; recursos y tecnología permanecen iguales.'],
+    ['Para Y=Ymáx−zH², ¿cuál es la pendiente de la frontera?', ['−2zH.', '−α(1+Y).', 'Y/H.', 'zH².'], 'Derivar Y respecto de H da −2zH; −α(1+Y) pertenece a la indiferencia.'],
+    ['¿Qué condición corresponde a una tangencia interior?', ['2zH=α(1+Y).', 'H=Y para cualquier escala.', 'α=Ymáx siempre.', 'La indiferencia no pasa por el óptimo.'], 'Se igualan −2zH y −α(1+Y), evaluadas en el mismo punto factible.'],
+    ['Con α=0 en este modelo de frontera, ¿qué elige el médico?', ['H=0 e ingreso máximo.', 'H máximo e ingreso cero.', 'H=Hmáx/2 siempre.', 'Ningún punto es factible.'], 'La utilidad solo crece con ingreso: el máximo factible es el extremo H=0. Es una solución de borde.'],
+    ['Una curva de indiferencia que ilustra el óptimo debe pasar por ese punto.', true, 'Su nivel se calcula con U del propio punto; una curva separada no representa esa elección.'],
+    ['La tangencia es obligatoria incluso cuando H* alcanza el extremo permitido Hmáx.', false, 'En una solución de borde puede no haber igualdad de pendientes; la restricción limita la elección.'],
+    ['La utilidad numérica permite comparar directamente el bienestar de dos médicos con parámetros distintos.', false, 'La representación de preferencias no proporciona una escala interpersonal de bienestar comparable.']
+  ]],
+  ['evaluacion', [
+    ['Sin descuento, ¿cuántos AVAC representan 2 años con calidad 0,8?', ['1,6.', '2,8.', '0,4.', '2,5.'], 'AVAC=calidad×duración=0,8×2=1,6 en ese estado.'],
+    ['Si A cuesta 100 y aporta 2 AVAC, y B cuesta 160 y aporta 3, ¿cuál es la RCEI?', ['60 por AVAC adicional.', '53,33 por AVAC adicional.', '50 por AVAC adicional.', '160 por AVAC adicional.'], 'Se calculan incrementos: (160−100)/(3−2)=60. CB/EB=53,33 es un cociente medio.'],
+    ['Con ΔC=60,ΔE=1 y λ=80, ¿cuál es el beneficio monetario neto incremental?', ['20.', '140.', '−20.', '0,75.'], 'BMNI=λΔE−ΔC=80×1−60=20, favorable a B bajo ese umbral hipotético.'],
+    ['Si B cuesta más y produce menos AVAC que A, ¿qué conclusión corresponde?', ['B está dominada por A.', 'B domina a A porque la RCEI es negativa.', 'Ambas son idénticas.', 'Es imposible comparar los costos.'], 'La combinación de mayor costo y menor resultado es desfavorable; el signo negativo de la RCEI no implica conveniencia.'],
+    ['Si dos alternativas tienen igual AVAC pero distintos costos, ¿cómo compararlas?', ['Comparar costos; la RCEI no está definida.', 'Asignar siempre RCEI=0.', 'Elegir la más cara por calidad supuesta.', 'Dividir costos por cero y usar el infinito como umbral.'], 'ΔAVAC=0 impide el cociente incremental; con resultados iguales se puede comparar el costo directamente.'],
+    ['Una intervención costo-efectiva con un umbral dado puede superar el presupuesto disponible.', true, 'Eficiencia e impacto presupuestario son evaluaciones distintas; también importa la distribución de beneficios.'],
+    ['El índice abstracto H de los gráficos se puede convertir a AVAC sin información adicional.', false, 'H no incorpora por sí solo duración ni ponderaciones válidas de calidad de vida.'],
+    ['Una RCEI negativa siempre demuestra que B es preferible.', false, 'Puede significar ahorro con más salud o mayor costo con menos salud; hay que examinar ambos incrementos.']
+  ]]
+].flatMap(([topic,items])=>items.map(([prompt,answer,explanation])=>({lesson:'econ-'+topic,prompt,explanation,...(Array.isArray(answer)?{type:'mc',options:answer}:{type:'tf',answer})}))));

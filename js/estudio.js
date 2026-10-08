@@ -22,7 +22,7 @@ const Estudio = (() => {
   const economicsUpdated = EconomiaIntegracion.enhance(st);
   if (economicsUpdated) {
     try {
-      localStorage.setItem('grd-estudio-antes-economia-v1', JSON.stringify(st));
+      localStorage.setItem('grd-estudio-antes-economia-v2', JSON.stringify(st));
       localStorage.setItem(KEY, JSON.stringify(economicsUpdated));
       st = economicsUpdated;
     } catch { status = 'No se pudo guardar la ampliación de Economía por falta de espacio. Tu material anterior se conserva; descarga un respaldo.'; }
@@ -235,7 +235,7 @@ const Estudio = (() => {
         ${next ? `<div class="study-actions">${button('lesson', `${read ? 'Continuar' : 'Comenzar'} con: ${html(next.title)} →`, `data-id="${html(next.id)}"`, 'light')}</div>` : ''}</div>
         <dl class="econ-hub-stats"><div><dt>Temas leídos</dt><dd>${read}/${s.lessons.length}</dd></div><div><dt>Tarjetas dominadas</dt><dd>${known}/${qs.length}</dd></div><div><dt>Última nota</dt><dd>${last ? examGrade(last.grade) : '—'}</dd></div></dl></article>
       <h3 class="econ-hub-heading">¿Qué quieres hacer hoy?</h3>
-      <div class="econ-hub-grid">${hubCard('resources', 'chart', 'Laboratorio de gráficos', 'Mueve precios y curvas, cambia datos y resuelve ejercicios con solución paso a paso.', '7 laboratorios · sin IA')}
+      <div class="econ-hub-grid">${hubCard('resources', 'chart', 'Laboratorio de gráficos', 'Mueve precios y curvas, cambia datos y resuelve ejercicios con solución paso a paso.', '12 laboratorios · sin IA')}
         ${pool.length ? hubCard('bank', 'shuffle', 'Banco de preguntas', `Entre ${BancoPreguntas.min} y ${BancoPreguntas.max} preguntas al azar de selección múltiple y verdadero o falso, con corrección inmediata.`, `${pool.length} preguntas · sin IA`) : ''}
         ${hubCard('exam', 'award', 'Prueba con IA y nota', `Elige ${PruebaEstudio.sizes.join(' o ')} preguntas nuevas. Recibe tu nota de 1,0 a 7,0 y las explicaciones al entregar.`, examMeta)}
         ${hubCard('tutor', 'chat', 'Tutor IA', 'Pregunta tus dudas, pide un ejemplo o practica una pregunta a la vez.', 'Usa la API de OpenAI')}</div>

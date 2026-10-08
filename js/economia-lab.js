@@ -6,7 +6,8 @@ const EconomiaLab = (() => {
   const money = v => '$' + f(v);
   const clone = v => structuredClone(v);
   const defaults = {
-    tab: 'market', formulas: true, hide: false, answers: { market: [], elasticity: [], scale: [], productivity: [], monopoly: [], insurance: [], grossman: [] },
+    ...EconomiaSalud.defaults,
+    tab: 'market', formulas: true, hide: false, answers: { ...Object.fromEntries(Object.keys(EconomiaSalud.defaults).map(k=>[k,[]])), market: [], elasticity: [], scale: [], productivity: [], monopoly: [], insurance: [], grossman: [] },
     market: { mode: 'equilibrium', name: 'Equilibrio del documento', price: 900, demandShift: 0, supplyShift: 0, baseline: true,
       rows: [[0,1800,300],[1,1500,500],[2,1200,700],[3,900,900],[4,700,1200],[5,500,1500],[6,300,1800],[7.5,0,2250]] },
     elasticity: { view: 'demand', p1: 4, p2: 5, q1: 100, q2: 90, supply: { p1: 4, p2: 5, q1: 100, q2: 110 }, compare: { a: { p1: 4, p2: 5, q1: 100, q2: 90 }, b: { p1: 4, p2: 5, q1: 100, q2: 70 } }, linear: { intercept: 7, quantity: 14, segments: 7, segment: 3 }, shift: { example: 'wheat', p0: 3, q0: 100, change: 20, ed: .3, es: .3, longEd: 1, longEs: 1 }, other: { mode: 'income', p1: 1000, p2: 1200, q1: 100, q2: 120 } },
@@ -26,6 +27,7 @@ const EconomiaLab = (() => {
   try { const saved = JSON.parse(localStorage.getItem(KEY)); if (saved?.version === 1) s = merge(defaults, saved.data); } catch {}
   // [id, pestaña, tema del ramo, qué se practica]
   const tabs = [
+    ...EconomiaSalud.tabs,
     ['market','Oferta y demanda','econ-mercado','Mueve el precio para ver excesos de oferta o demanda, o desplaza las curvas.'],
     ['elasticity','Elasticidad','econ-elasticidad','Explora oferta, demanda e ingresos con curvas, áreas y ejemplos editables.'],
     ['scale','Economías de escala','econ-escala','Compara el costo por examen de dos volúmenes, a corto y a largo plazo.'],
@@ -122,6 +124,7 @@ const EconomiaLab = (() => {
     return `<section class="econ-exercise"><div class="econ-section-heading"><h4>Tu turno</h4>${button('new-exercise','Otro ejercicio')}</div><p>${question}</p><form id="econ-exercise-form"><div class="econ-sheet-scroll"><table class="econ-sheet"><caption>Sin separadores de miles · decimal con coma o punto · tolerancia 0,5%</caption><tbody>${labels.map((label,i)=>`<tr><th scope="row">${label}</th><td><input type="text" inputmode="decimal" aria-label="Respuesta: ${h(label)}" data-e-answer="${i}" placeholder="Tu cálculo" value="${h(s.answers?.[s.tab]?.[i] || '')}"></td></tr>`).join('')}</tbody></table></div><button type="submit" class="study-btn">Comprobar respuestas</button></form><div id="econ-feedback" role="status">${feedback}</div>${help('Ver solución paso a paso', `<p>${steps}</p>`)}</section>`;
   }
   function controls() {
+    if (EconomiaSalud.defaults[s.tab]) return EconomiaSalud.controls({s,sheet,range,hint});
     if (s.tab === 'market') return `<h4>1. Elige una situación</h4>${select('market.mode','Gráfico que quieres explorar',[['demand','Demanda'],['supply','Oferta'],['equilibrium','Equilibrio'],['shifts','Desplazamientos']])}<div class="econ-presets">${button('preset','Equilibrio del apunte','data-preset="market-doc"')}${button('preset','Bebida del apunte','data-preset="beverage"')}${button('preset','Consultas de salud','data-preset="health"')}</div><p class="econ-source-label">${h(s.market.name)}</p>
       <details class="econ-data" ${dataOpen ? 'open' : ''}><summary data-e-toggle="data">2. Editar la tabla de datos <small>(${s.market.rows.length} filas)</small></summary><div class="econ-sheet-scroll"><table class="econ-sheet econ-market-table"><caption>Q horizontal · precios de demanda/oferta verticales</caption><thead><tr><th scope="col">Q</th><th scope="col">P demanda</th><th scope="col">P oferta</th><th scope="col"><span class="econ-sr">Quitar</span></th></tr></thead><tbody>${s.market.rows.map((r,i)=>`<tr>${r.map((v,j)=>`<td>${input(`market.rows.${i}.${j}`,`Fila ${i+1}, ${['cantidad Q','precio demanda','precio oferta'][j]}`)}</td>`).join('')}<td>${button('remove-row','×',`data-row="${i}" aria-label="Quitar fila ${i+1}" ${s.market.rows.length<=2?'disabled':''}`)}</td></tr>`).join('')}</tbody></table></div>${button('add-row','+ Fila',s.market.rows.length>=40?'disabled':'')}</details>
       ${range('market.price','Precio observado ($)',0,Math.max(2500,...s.market.rows.flatMap(r=>r.slice(1)).filter(Number.isFinite))*1.5,1)}
@@ -200,13 +203,17 @@ const EconomiaLab = (() => {
   }
   function output() {
     expected=[];solution='';plotMeta=null;
+    if (EconomiaSalud.defaults[s.tab]) {
+      try { return EconomiaSalud.output({s,chart,stats,formula,help,exercise,f,vv}); }
+      catch(err) { return `<div class="econ-error" role="alert"><strong>Revisa los datos</strong><p>${h(err.message)}</p></div>`; }
+    }
     try { return ({market:marketOutput,elasticity:elasticityOutput,scale:scaleOutput,productivity:productivityOutput,monopoly:monopolyOutput,insurance:insuranceOutput,grossman:grossmanOutput}[s.tab])(); }
     catch(err) { return `<div class="econ-error" role="alert"><strong>Revisa los datos</strong><p>${h(err.message)}</p><p>Corrige la celda o usa Deshacer para continuar.</p></div>`; }
   }
   function html() {
     const index = tabs.findIndex(([id]) => id === s.tab), [, name, lesson, description] = tabs[index];
     // data-action="lesson" is handled by the study page, which owns lesson navigation.
-    return `<section id="econ-lab" class="econ-lab"><nav class="econ-tabs" aria-label="Laboratorios de economía">${tabs.map(([id,label])=>button('tab',label,`data-tab="${id}" aria-pressed="${s.tab===id}"`,s.tab===id)).join('')}</nav><div class="econ-heading"><div><span class="study-eyebrow">LABORATORIO ${index + 1} DE ${tabs.length}</span><h2>${name}</h2><p>${description}</p></div><button type="button" class="study-btn secondary" data-action="lesson" data-id="${lesson}">Leer el tema →</button></div><div class="econ-toolbar"><div>${check('formulas','Mostrar fórmulas')}${check('hide','Ocultar resultados para practicar')}</div><div>${button('undo','Deshacer',history.length?'':'disabled')}${button('reset','Restablecer')}${button('download','Descargar datos')}</div></div><div class="econ-layout"><aside class="econ-controls" aria-label="Datos del laboratorio">${controls()}</aside><div class="econ-output" id="econ-output" aria-live="polite">${output()}</div></div><p id="econ-save" class="econ-save">${notice||'Los cambios se guardan en este navegador.'}</p><p class="econ-source-note">Base: RESUMEN ECONOMIA CLAUDE.docx. Los seis gráficos se reconstruyen con coordenadas calculadas; los escenarios de salud son simulados. Los controles y las ayudas funcionan sin IA.</p></section>`;
+    return `<section id="econ-lab" class="econ-lab"><nav class="econ-tabs" aria-label="Laboratorios de economía">${tabs.map(([id,label])=>button('tab',label,`data-tab="${id}" aria-pressed="${s.tab===id}"`,s.tab===id)).join('')}</nav><div class="econ-heading"><div><span class="study-eyebrow">LABORATORIO ${index + 1} DE ${tabs.length}</span><h2>${name}</h2><p>${description}</p></div><button type="button" class="study-btn secondary" data-action="lesson" data-id="${lesson}">Leer el tema →</button></div><div class="econ-toolbar"><div>${check('formulas','Mostrar fórmulas')}${check('hide','Ocultar resultados para practicar')}</div><div>${button('undo','Deshacer',history.length?'':'disabled')}${button('reset','Restablecer')}${button('download','Descargar datos')}</div></div><div class="econ-layout"><aside class="econ-controls" aria-label="Datos del laboratorio">${controls()}</aside><div class="econ-output" id="econ-output" aria-live="polite">${output()}</div></div><p id="econ-save" class="econ-save">${notice||'Los cambios se guardan en este navegador.'}</p><p class="econ-source-note">Base: resumen de Economía y apuntes de productividad marginal y utilidad del médico (10 sep 2026). Gráficos calculados y escenarios simulados. Los controles y las ayudas funcionan sin IA.</p></section>`;
   }
   function render() {
     clearExplanation();
@@ -226,6 +233,7 @@ const EconomiaLab = (() => {
   }
   function newExercise() {
     const pick=a=>a[Math.floor(Math.random()*a.length)];
+    if(EconomiaSalud.defaults[s.tab])EconomiaSalud.newExercise(s.tab,s[s.tab],pick);
     if(s.tab==='market'){s.market=clone(defaults.market);s.market.price=pick([500,700,1100,1500]);}
     if(s.tab==='elasticity'){s.elasticity.view='demand';Object.assign(s.elasticity,{p1:pick([2,3,4]),p2:5,q1:100,q2:pick([60,70,90])});}
     if(s.tab==='scale'){s.scale.fixed=pick([600000,1000000,1500000]);s.scale.variable=pick([3000,5000,7000]);s.scale.qa=100;s.scale.qb=pick([150,200,250]);s.scale.congestion=0;s.scale.alpha=pick([0.7,0.8,1,1.2]);s.scale.c0=pick([1200000,1500000,1800000]);s.scale.q0=100;}
@@ -264,7 +272,7 @@ const EconomiaLab = (() => {
     const a=b.dataset.eAction;
     if(a==='tab'){s.tab=b.dataset.tab;feedback='';persist();render();document.querySelector(`[data-e-action="tab"][data-tab="${s.tab}"]`)?.focus({preventScroll:true});return true;}
     if(a==='download'){
-      const payload={source:'RESUMEN ECONOMIA CLAUDE.docx; escenarios simulados',version:1,data:s};
+      const payload={source:'Resumen de Economía; productividad marginal y utilidad del médico, 10 sep 2026; escenarios simulados',version:1,data:s};
       const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='economia-practica.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return true;
     }
     if(a==='undo'){if(history.length)s=JSON.parse(history.pop());}
