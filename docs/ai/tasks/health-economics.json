@@ -14,7 +14,9 @@
     "Synthetic public evidence only; one implementer, no edits while Claude reviews; initial review plus at most three correction rounds.",
     "No new dependencies or remote content-generation services; preserve the separate collaborative application and its data."
   ],
-  "previous_findings": [],
+  "previous_findings": [
+    "test-ui-missing-health (low), revisión inicial de ff3429c: resuelto agregando browser-health.cjs a npm run test:ui, en paridad con hotfix-ui.test.mjs. No se cambia base ni presupuesto de revisión."
+  ],
   "files": [
     "AGENTS.md",
     "docs/ai/revision-claude.md",

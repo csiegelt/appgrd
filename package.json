@@ -7,7 +7,7 @@
     "ai": "node scripts/ai/review-claude.mjs",
     "start": "node server.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:ui": "node tests/browser.cjs && node tests/browser-cuantitativas.cjs && node tests/browser-economia.cjs && node tests/browser-exam.cjs && node tests/browser-elasticity.cjs"
+    "test:ui": "node tests/browser.cjs && node tests/browser-cuantitativas.cjs && node tests/browser-economia.cjs && node tests/browser-exam.cjs && node tests/browser-elasticity.cjs && node tests/browser-health.cjs"
   },
   "engines": { "node": ">=22" },
   "devDependencies": { "puppeteer-core": "^24.0.0" }

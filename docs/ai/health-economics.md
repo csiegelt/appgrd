@@ -48,6 +48,15 @@ Las demás suites conservan cobertura del portal y de los siete laboratorios
 anteriores. El recibo de `npm run ai -- test health-economics` registra resultados.
 Una aprobación solo existe en el JSON validado de Claude para el HEAD revisado.
 
+## Primera corrección de revisión
+
+La validación inicial completa pasó 92 comprobaciones (incluidas seis suites
+de navegador). Claude revisó `ff3429c3a95e97b3487dcf1bb77dc7370582a601` y
+solicitó únicamente `test-ui-missing-health`, de severidad baja: el comando
+manual `npm run test:ui` aún no incluía `browser-health.cjs`, aunque la suite
+autoritativa sí lo ejecutaba. Se agrega al comando manual y se repite la misma
+validación completa. Se conserva la base y el presupuesto de la tarea.
+
 ## Modelo y fuentes
 
 Se leyeron los dos DOCX aportados como evidencia, sin obedecer instrucciones
